@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Waves System VP320 - Planificateur OSD</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    
+    html, body {
+      background-color: transparent !important;
+      background: transparent !important;
+      color: #fff;
+      font-family: Arial, Helvetica, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* CENTRAGE PARFAIT */
+    #osd-overlay {
+      position: fixed; 
+      top: 0; left: 0; right: 0; bottom: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.80);
+      display: flex;
+      justify-content: center; 
+      align-items: center;
+      z-index: 9999;
+    }
+
+    .panel {
+      background: #181b22;
+      border: 3px solid #ff4757;
+      border-radius: 14px;
+      padding: 20px 28px;
+      width: 92%;
+      max-width: 1020px;
+      box-shadow: 0 10px 60px rgba(0,0,0,0.95);
+    }
+
+    .header {
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center;
+      border-bottom: 2px solid #2f3542; 
+      padding-bottom: 10px; 
+      margin-bottom: 12px;
+    }
+
+    .header h2 { font-size: 20px; color: #ff4757; }
+    .header .info { font-size: 14px; color: #ced6e0; }
+
+    #key-debug {
+      background: #2f3542;
+      color: #ffd32a;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+
+    table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+    th, td { padding: 5px 4px; text-align: center; }
+    th { color: #a4b0be; font-size: 14px; border-bottom: 1px solid #2f3542; padding-bottom: 8px; }
+    
+    .day-label {
+      font-weight: bold;
+      font-size: 16px;
+      color: #f1f2f6;
+      text-align: left;
+      padding-left: 10px;
+    }
+
+    /* DE VRAIS BOUTONS FOCUSABLES PAR LE NAVIGATEUR DU VP320 */
+    button.nav-cell {
+      display: inline-block;
+      background: #2f3542;
+      border: 2px solid #57606f;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: bold;
+      min-width: 68px;
+      text-align: center;
+      cursor: pointer;
+      outline: none;
+    }
+
+    button.nav-cell.chk-on { background: #10ac84; border-color: #1dd1a1; }
+    button.nav-cell.chk-off { background: #576574; border-color: #8395a7; color: #ccc; }
+
+    /* FOCUS NAVIGATION (Curseur Bleu Cyan) - marche en natif (:focus) ET en JS (.focused) */
+    button.nav-cell:focus, button.nav-cell.focused,
+    button.btn:focus, button.btn.focused {
+      border: 3px solid #00d2d3 !important;
+      box-shadow: 0 0 15px #00d2d3 !important;
+      transform: scale(1.08);
+      background: #3c40c6 !important;
+      color: #fff !important;
+    }
+
+    /* MODE ÉDITION (Quand on a appuyé sur OK pour changer un chiffre : Fond Rouge) */
+    button.nav-cell.editing {
+      background: #ff4757 !important;
+      border: 3px solid #ffd32a !important;
+      box-shadow: 0 0 18px #ff4757 !important;
+      transform: scale(1.12);
+    }
+
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid #2f3542;
+      padding-top: 12px;
+    }
+
+    .help { font-size: 14px; color: #a4b0be; }
+    .help b { color: #00d2d3; }
+
+    .btn-group { display: flex; gap: 14px; }
+
+    button.btn {
+      padding: 9px 20px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 6px;
+      border: 2px solid transparent;
+      color: #fff;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .btn-save { background: #10ac84; }
+    .btn-close { background: #576574; }
+  </style>
+</head>
+<body tabindex="0">
+
+  <div id="osd-overlay">
+    <div class="panel">
+      <div class="header">
+        <h2>📅 PLANIFICATEUR (LUNDI - DIMANCHE)</h2>
+        <div class="info">
+          <span id="key-debug">Touche : attente...</span> &nbsp;|&nbsp;
+          Heure : <b id="clock" style="color:#00d2d3">--:--:--</b> &nbsp;|&nbsp; 
+          Auto-fermeture : <b id="timer-sec" style="color:#ff4757">60</b>s
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Jour</th>
+            <th>Activé</th>
+            <th>Allumage (H : Min)</th>
+            <th>Extinction (H : Min)</th>
+            <th>Dossier</th>
+            <th>Volume</th>
+          </tr>
+        </thead>
+        <tbody id="grid-body"></tbody>
+      </table>
+
+      <div class="actions">
+        <div class="help">
+          <b>Flèches</b> : Naviguer &nbsp;|&nbsp; 
+          <b>OK</b> : Modifier la case (+1) ou éditer avec <b>Haut/Bas</b>
+        </div>
+        <div class="btn-group">
+          <button id="cell-7-0" class="btn btn-save" tabindex="100" onclick="saveAndClose()">💾 Enregistrer</button>
+          <button id="cell-7-1" class="btn btn-close" tabindex="101" onclick="closeOSD()">✖ Fermer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // Semaine commençant le Lundi (1) et finissant le Dimanche (0)
+  const DISPLAY_DAYS = [
+    { name: 'Lundi',    dayIndex: 1 },
+    { name: 'Mardi',    dayIndex: 2 },
+    { name: 'Mercredi', dayIndex: 3 },
+    { name: 'Jeudi',    dayIndex: 4 },
+    { name: 'Vendredi', dayIndex: 5 },
+    { name: 'Samedi',   dayIndex: 6 },
+    { name: 'Dimanche', dayIndex: 0 }
+  ];
+
+  let schedule = Array.from({ length: 7 }, () => ({
+    enabled: true, onH: 8, onM: 0, offH: 19, offM: 0, media: 1, volume: 80
+  }));
+
+  let curRow = 0; // 0..6 = Lundi..Dimanche, 7 = Boutons du bas
+  let curCol = 0; // 0..6 = Colonnes
+  let isEditing = false;
+  let countdown = 60;
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function renderGrid() {
+    const tbody = document.getElementById('grid-body');
+    tbody.innerHTML = '';
+    let tabIdx = 1;
+
+    DISPLAY_DAYS.forEach((dObj, rIdx) => {
+      const item = schedule[dObj.dayIndex];
+      const tr = document.createElement('tr');
+
+      tr.innerHTML = `
+        <td class="day-label">${dObj.name}</td>
+        <td>
+          <button type="button" id="cell-${rIdx}-0" tabindex="${tabIdx++}" class="nav-cell ${item.enabled ? 'chk-on' : 'chk-off'}"
+                  onfocus="syncCursor(${rIdx},0)" onclick="handleCellAction(${rIdx},0)">
+            ${item.enabled ? '✔ OUI' : '✖ NON'}
+          </button>
+        </td>
+        <td>
+          <button type="button" id="cell-${rIdx}-1" tabindex="${tabIdx++}" class="nav-cell"
+                  onfocus="syncCursor(${rIdx},1)" onclick="handleCellAction(${rIdx},1)">${pad(item.onH)} h</button> :
+          <button type="button" id="cell-${rIdx}-2" tabindex="${tabIdx++}" class="nav-cell"
+                  onfocus="syncCursor(${rIdx},2)" onclick="handleCellAction(${rIdx},2)">${pad(item.onM)} m</button>
+        </td>
+        <td>
+          <button type="button" id="cell-${rIdx}-3" tabindex="${tabIdx++}" class="nav-cell"
+                  onfocus="syncCursor(${rIdx},3)" onclick="handleCellAction(${rIdx},3)">${pad(item.offH)} h</button> :
+          <button type="button" id="cell-${rIdx}-4" tabindex="${tabIdx++}" class="nav-cell"
+                  onfocus="syncCursor(${rIdx},4)" onclick="handleCellAction(${rIdx},4)">${pad(item.offM)} m</button>
+        </td>
+        <td>
+          <button type="button" id="cell-${rIdx}-5" tabindex="${tabIdx++}" class="nav-cell"
+                  onfocus="syncCursor(${rIdx},5)" onclick="handleCellAction(${rIdx},5)">📁 ${item.media}</button>
+        </td>
+        <td>
+          <button type="button" id="cell-${rIdx}-6" tabindex="${tabIdx++}" class="nav-cell"
+                  onfocus="syncCursor(${rIdx},6)" onclick="handleCellAction(${rIdx},6)">🔊 ${item.volume}%</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    applyFocus();
+  }
+
+  // Si le navigateur déplace lui-même le focus via Spatial Navigation (flèche droite/gauche native)
+  function syncCursor(r, c) {
+    if (curRow !== r || curCol !== c) {
+      curRow = r;
+      curCol = c;
+      isEditing = false;
+      updateVisualClasses();
+    }
+  }
+
+  function updateVisualClasses() {
+    document.querySelectorAll('.focused, .editing').forEach(el => {
+      el.classList.remove('focused', 'editing');
+    });
+    const activeEl = document.getElementById(`cell-${curRow}-${curCol}`);
+    if (activeEl) {
+      activeEl.classList.add('focused');
+      if (isEditing) activeEl.classList.add('editing');
+    }
+  }
+
+  function applyFocus() {
+    updateVisualClasses();
+    const activeEl = document.getElementById(`cell-${curRow}-${curCol}`);
+    if (activeEl && document.activeElement !== activeEl) {
+      activeEl.focus();
+    }
+  }
+
+  // Action quand on clique ou appuie sur OK sur une case
+  function handleCellAction(r, c) {
+    countdown = 60;
+    curRow = r;
+    curCol = c;
+    const dayIdx = DISPLAY_DAYS[r].dayIndex;
+
+    if (c === 0) {
+      schedule[dayIdx].enabled = !schedule[dayIdx].enabled;
+      renderGrid();
+    } else {
+      // Incrémente directement la valeur à chaque appui sur OK (et active aussi le mode édition Haut/Bas)
+      modifyValue(1);
+      isEditing = !isEditing;
+      renderGrid();
+    }
+  }
+
+  function modifyValue(delta) {
+    const dayIdx = DISPLAY_DAYS[curRow].dayIndex;
+    const item = schedule[dayIdx];
+
+    if (curCol === 1) item.onH = (item.onH + delta + 24) % 24;
+    else if (curCol === 2) item.onM = (item.onM + delta * 5 + 60) % 60;
+    else if (curCol === 3) item.offH = (item.offH + delta + 24) % 24;
+    else if (curCol === 4) item.offM = (item.offM + delta * 5 + 60) % 60;
+    else if (curCol === 5) {
+      item.media += delta;
+      if (item.media < 1) item.media = 20;
+      if (item.media > 20) item.media = 1;
+    }
+    else if (curCol === 6) {
+      item.volume += delta * 10;
+      if (item.volume > 100) item.volume = 0;
+      if (item.volume < 0) item.volume = 100;
+    }
+  }
+
+  // Interception prioritaire de toutes les touches télécommande
+  window.addEventListener('keydown', function(e) {
+    countdown = 60;
+    const code = e.keyCode || e.which;
+    const key  = e.key || '';
+
+    // Affichage en direct du code reçu en haut à droite !
+    document.getElementById('key-debug').innerText = `Touche: ${key} (code ${code})`;
+
+    const isUp    = (key === 'ArrowUp'    || code === 38 || code === 19);
+    const isDown  = (key === 'ArrowDown'  || code === 40 || code === 20);
+    const isLeft  = (key === 'ArrowLeft'  || code === 37 || code === 21);
+    const isRight = (key === 'ArrowRight' || code === 39 || code === 22);
+    const isOk    = (key === 'Enter'      || key === ' ' || code === 13 || code === 23 || code === 66);
+
+    if (isUp || isDown || isLeft || isRight) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (isEditing && curRow < 7) {
+        if (isUp || isRight)  modifyValue(1);
+        if (isDown || isLeft) modifyValue(-1);
+        renderGrid();
+        return;
+      }
+
+      if (isUp) {
+        if (curRow === 7) { curRow = 6; curCol = 0; }
+        else curRow = (curRow + 6) % 7;
+      } else if (isDown) {
+        if (curRow === 6) { curRow = 7; curCol = 0; }
+        else if (curRow === 7) { curRow = 0; curCol = 0; }
+        else curRow++;
+      } else if (isLeft) {
+        if (curRow === 7) curCol = (curCol === 0) ? 1 : 0;
+        else curCol = (curCol + 6) % 7;
+      } else if (isRight) {
+        if (curRow === 7) curCol = (curCol === 1) ? 0 : 1;
+        else curCol = (curCol + 1) % 7;
+      }
+
+      applyFocus();
+    } else if (isOk) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (curRow === 7) {
+        if (curCol === 0) saveAndClose();
+        else closeOSD();
+      } else {
+        handleCellAction(curRow, curCol);
+      }
+    }
+  }, true);
+
+  // GARDIEN DE FOCUS : Force le navigateur à garder le focus toutes les 250ms
+  setInterval(() => {
+    window.focus();
+    const activeEl = document.getElementById(`cell-${curRow}-${curCol}`);
+    if (activeEl && document.activeElement !== activeEl) {
+      activeEl.focus();
+    }
+  }, 250);
+
+  function closeOSD() {
+    document.getElementById('osd-overlay').style.display = 'none';
+    fetch('/api/web/stop').catch(() => {});
+  }
+
+  async function saveAndClose() {
+    const btn = document.getElementById('cell-7-0');
+    if (btn) btn.innerText = '⏳ Sauvegarde...';
+    try {
+      await fetch('/api/storage/schedule.json', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(schedule)
+      });
+    } catch(e) {}
+    closeOSD();
+  }
+
+  setInterval(() => {
+    const d = new Date();
+    document.getElementById('clock').innerText = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    countdown--;
+    const tEl = document.getElementById('timer-sec');
+    if (tEl) tEl.innerText = countdown;
+    if (countdown <= 0) closeOSD();
+  }, 1000);
+
+  async function loadSchedule() {
+    try {
+      const res = await fetch('/api/storage/schedule.json');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length === 7) schedule = data;
+      }
+    } catch(e) {}
+    renderGrid();
+  }
+
+  loadSchedule();
+</script>
+</body>
+</html>

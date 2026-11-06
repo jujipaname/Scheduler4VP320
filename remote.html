@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>VP320 - Web Remote</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #0e1217; color: #fff; padding: 15px; }
+    .container { max-width: 600px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 20px; }
+    header h1 { font-size: 20px; color: #ff3b30; }
+
+    /* Onglets */
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+    .tab-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; background: #1c232d; color: #8fa0b5; font-size: 15px; font-weight: bold; cursor: pointer; }
+    .tab-btn.active { background: #ff3b30; color: #fff; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Section Cartes & Boutons */
+    .card { background: #171d26; border-radius: 12px; padding: 18px; margin-bottom: 15px; border: 1px solid #283344; }
+    .card h2 { font-size: 15px; color: #8fa0b5; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn { padding: 15px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; color: #fff; display: flex; align-items: center; justify-content: center; }
+    .btn-play { background: #34c759; }
+    .btn-pause { background: #ff9500; }
+    .btn-stop { background: #ff3b30; }
+    .btn-mute { background: #5856d6; }
+    .btn-pwr-on { background: #007aff; }
+    .btn-pwr-off { background: #3a4759; }
+
+    /* Contrôle Volume */
+    .vol-ctrl { display: flex; align-items: center; gap: 15px; margin-top: 10px; }
+    input[type=range] { flex: 1; height: 8px; border-radius: 4px; accent-color: #ff3b30; }
+
+    /* Éditeur de Planning */
+    .day-plan { background: #1f2733; padding: 12px; border-radius: 8px; margin-bottom: 10px; font-size: 14px; }
+    .day-plan-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .day-name { font-weight: bold; color: #fff; font-size: 16px; }
+    .day-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .day-grid label { display: block; font-size: 12px; color: #8fa0b5; margin-bottom: 3px; }
+    .day-grid input { width: 100%; padding: 8px; background: #0e1217; border: 1px solid #3a4759; border-radius: 4px; color: #fff; font-size: 14px; }
+    .btn-save { width: 100%; padding: 16px; background: #34c759; color: #fff; font-size: 17px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>VP320 Remote Control</h1>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('tab-live')">Télécommande</button>
+    <button class="tab-btn" onclick="switchTab('tab-sched')">Planning Hebdo</button>
+  </div>
+
+  <!-- ONGLET 1 : TÉLÉCOMMANDE DIRECTE -->
+  <div id="tab-live" class="tab-content active">
+    <div class="card">
+      <h2>Lecture Média</h2>
+      <div class="btn-grid">
+        <button class="btn btn-play" onclick="cmd('/api/player/resume')">▶ Lecture</button>
+        <button class="btn btn-pause" onclick="cmd('/api/player/pause')">⏸ Freeze (Pause)</button>
+        <button class="btn btn-stop" onclick="cmd('/api/player/stop')">⏹ Stop</button>
+        <button class="btn btn-mute" onclick="cmd('/api/player/mute')">🔇 Couper Son</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Volume en direct</h2>
+      <div class="vol-ctrl">
+        <span id="vol-txt">80%</span>
+        <input type="range" id="vol-slider" min="0" max="100" value="80" onchange="sendVolume(this.value)">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Écrans & Vidéoprojecteur (PJLink / CEC)</h2>
+      <div class="btn-grid">
+        <button class="btn btn-pwr-on" onclick="sendPower(true)">⚡ Allumer Tout</button>
+        <button class="btn btn-pwr-off" onclick="sendPower(false)">⏻ Éteindre Tout</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ONGLET 2 : ÉDITEUR DU SCHEDULER -->
+  <div id="tab-sched" class="tab-content">
+    <div class="card">
+      <h2>Programmation 7 Jours</h2>
+      <div id="sched-list"></div>
+      <button class="btn-save" onclick="saveWebSchedule()">💾 Enregistrer sur le Player</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  let currentSchedule = [];
+
+  function switchTab(id) {
+    document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', (i === (id === 'tab-live' ? 0 : 1))));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    if (id === 'tab-sched') loadWebSchedule();
+  }
+
+  // Appels API Télécommande Directe
+  async function cmd(url) {
+    try { await fetch(url, { method: 'POST' }); } catch(e) { alert("Erreur commande : " + e); }
+  }
+
+  async function sendVolume(val) {
+    document.getElementById('vol-txt').innerText = val + '%';
+    await fetch(`/api/player/volume/${val}`, { method: 'POST' });
+  }
+
+  async function sendPower(on) {
+    await fetch(`/api/system/cec/${on ? 'wakeup' : 'standby'}`, { method: 'POST' });
+    await fetch('/api/pjlink/power', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ power: on ? 1 : 0 })
+    });
+  }
+
+  // Fonctions de l'Éditeur de Planning
+  const pad = n => String(n).padStart(2, '0');
+
+  async function loadWebSchedule() {
+    try {
+      const res = await fetch('/api/storage/schedule.json');
+      currentSchedule = await res.json();
+    } catch(e) {
+      currentSchedule = Array(7).fill(null).map(() => ({ enabled: true, onH: 8, onM: 0, offH: 19, offM: 0, media: 1, volume: 80 }));
+    }
+    renderEditor();
+  }
+
+  function renderEditor() {
+    const root = document.getElementById('sched-list');
+    root.innerHTML = '';
+    currentSchedule.forEach((plan, i) => {
+      const div = document.createElement('div');
+      div.className = 'day-plan';
+      div.innerHTML = `
+        <div class="day-plan-header">
+          <span class="day-name">${DAYS[i]}</span>
+          <label><input type="checkbox" id="chk-${i}" ${plan.enabled ? 'checked' : ''}> Actif</label>
+        </div>
+        <div class="day-grid">
+          <div><label>Début</label><input type="time" id="on-${i}" value="${pad(plan.onH)}:${pad(plan.onM)}"></div>
+          <div><label>Fin</label><input type="time" id="off-${i}" value="${pad(plan.offH)}:${pad(plan.offM)}"></div>
+          <div><label>Dossier Média</label><input type="number" id="med-${i}" min="1" max="999" value="${plan.media}"></div>
+          <div><label>Volume (%)</label><input type="number" id="vol-${i}" min="0" max="100" value="${plan.volume}"></div>
+        </div>
+      `;
+      root.appendChild(div);
+    });
+  }
+
+  async function saveWebSchedule() {
+    DAYS.forEach((_, i) => {
+      const [onH, onM] = document.getElementById(`on-${i}`).value.split(':').map(Number);
+      const [offH, offM] = document.getElementById(`off-${i}`).value.split(':').map(Number);
+      currentSchedule[i] = {
+        enabled: document.getElementById(`chk-${i}`).checked,
+        onH, onM, offH, offM,
+        media: parseInt(document.getElementById(`med-${i}`).value),
+        volume: parseInt(document.getElementById(`vol-${i}`).value)
+      };
+    });
+
+    try {
+      await fetch('/api/storage/schedule.json', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(currentSchedule)
+      });
+      alert("✅ Planning enregistré et synchronisé avec le player !");
+    } catch(e) {
+      alert("Erreur lors de l'enregistrement : " + e);
+    }
+  }
+
+  loadWebSchedule();
+</script>
+</body>
+</html>
