@@ -1,0 +1,70 @@
+{
+  "suite": "offline",
+  "generatedAt": "2026-11-06T15:34:42.651Z",
+  "node": "v24.22.2",
+  "total": 12,
+  "passed": 12,
+  "failed": 0,
+  "results": [
+    {
+      "name": "tm2 roundtrip scheduler1.tm2",
+      "pass": true,
+      "detail": "fichier relu byte-for-byte (78726 octets)"
+    },
+    {
+      "name": "tm2 roundtrip scheduler2.tm2",
+      "pass": true,
+      "detail": "fichier relu byte-for-byte (82708 octets)"
+    },
+    {
+      "name": "tm2 size formula",
+      "pass": true,
+      "detail": "taille=82708 = 75264 + 2*3072 + 10*130"
+    },
+    {
+      "name": "tm2 header champs",
+      "pass": true,
+      "detail": "ver=\"SCH21.01\" name=\"\" device=\"eVP3x0--0100----My Video Player (VP320/VP330) / Event Video Player (EVP380)\""
+    },
+    {
+      "name": "tm2 command mapping (COMMANDS)",
+      "pass": true,
+      "detail": "commandes + format heure OK"
+    },
+    {
+      "name": "tm2 synthetic roundtrip (modèle éditeur)",
+      "pass": true,
+      "detail": "encode->parse synthétique OK (81798 octets)"
+    },
+    {
+      "name": "engine resolveDay",
+      "pass": true,
+      "detail": "2025-12-16 -> day 0 ; jour non affecté -> null"
+    },
+    {
+      "name": "engine eventsFor + toREST + describe",
+      "pass": true,
+      "detail": "08:30 -> WAKE UP -> /api/power/wakeup"
+    },
+    {
+      "name": "md5 RFC1321 vectors",
+      "pass": true,
+      "detail": "3 vecteurs RFC1321 OK"
+    },
+    {
+      "name": "digest RFC2617 example (cnonce fixe)",
+      "pass": true,
+      "detail": "response = 6629fae4... OK"
+    },
+    {
+      "name": "api parseChallenge",
+      "pass": true,
+      "detail": "challenge parsé"
+    },
+    {
+      "name": "api buildAuth structure",
+      "pass": true,
+      "detail": "Digest username=\"admin\", realm=\"r\", nonce=\"n\", uri=\"/api/player/play\", response=\"4b6300ac7a8f16f63c0c417b4498d9ab\", qop=auth, nc=00000001, cnonce=\"bzu2qquchrvpzzycc06dwp\""
+    }
+  ]
+}

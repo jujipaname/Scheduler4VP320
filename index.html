@@ -2,29 +2,23 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Waves System VP320 - Planificateur OSD</title>
+  <title>Waves System VP320 - Scheduler OSD</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
-    
+
     html, body {
-      background-color: transparent !important;
       background: transparent !important;
       color: #fff;
       font-family: Arial, Helvetica, sans-serif;
       overflow: hidden;
-      width: 100vw;
-      height: 100vh;
+      width: 100vw; height: 100vh;
     }
 
-    /* CENTRAGE PARFAIT */
     #osd-overlay {
-      position: fixed; 
-      top: 0; left: 0; right: 0; bottom: 0;
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       width: 100vw; height: 100vh;
-      background: rgba(0, 0, 0, 0.80);
-      display: flex;
-      justify-content: center; 
-      align-items: center;
+      background: rgba(0, 0, 0, 0.82);
+      display: flex; justify-content: center; align-items: center;
       z-index: 9999;
     }
 
@@ -33,64 +27,32 @@
       border: 3px solid #ff4757;
       border-radius: 14px;
       padding: 20px 28px;
-      width: 92%;
-      max-width: 1020px;
+      width: 94%;
+      max-width: 1100px;
       box-shadow: 0 10px 60px rgba(0,0,0,0.95);
     }
 
     .header {
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center;
-      border-bottom: 2px solid #2f3542; 
-      padding-bottom: 10px; 
-      margin-bottom: 12px;
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 2px solid #2f3542; padding-bottom: 10px; margin-bottom: 12px;
     }
-
     .header h2 { font-size: 20px; color: #ff4757; }
     .header .info { font-size: 14px; color: #ced6e0; }
-
-    #key-debug {
-      background: #2f3542;
-      color: #ffd32a;
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-family: monospace;
-      font-size: 13px;
-    }
+    #key-debug { background: #2f3542; color: #ffd32a; padding: 3px 8px; border-radius: 4px; font-family: monospace; font-size: 13px; }
 
     table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
-    th, td { padding: 5px 4px; text-align: center; }
+    th, td { padding: 6px 6px; text-align: center; }
     th { color: #a4b0be; font-size: 14px; border-bottom: 1px solid #2f3542; padding-bottom: 8px; }
-    
-    .day-label {
-      font-weight: bold;
-      font-size: 16px;
-      color: #f1f2f6;
-      text-align: left;
-      padding-left: 10px;
-    }
 
-    /* DE VRAIS BOUTONS FOCUSABLES PAR LE NAVIGATEUR DU VP320 */
     button.nav-cell {
       display: inline-block;
-      background: #2f3542;
-      border: 2px solid #57606f;
-      color: #fff;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 16px;
-      font-weight: bold;
-      min-width: 68px;
-      text-align: center;
-      cursor: pointer;
-      outline: none;
+      background: #2f3542; border: 2px solid #57606f; color: #fff;
+      padding: 7px 12px; border-radius: 6px;
+      font-size: 15px; font-weight: bold; min-width: 62px;
+      text-align: center; cursor: pointer; outline: none;
     }
+    button.nav-cell.on { background: #10ac84; border-color: #1dd1a1; }
 
-    button.nav-cell.chk-on { background: #10ac84; border-color: #1dd1a1; }
-    button.nav-cell.chk-off { background: #576574; border-color: #8395a7; color: #ccc; }
-
-    /* FOCUS NAVIGATION (Curseur Bleu Cyan) - marche en natif (:focus) ET en JS (.focused) */
     button.nav-cell:focus, button.nav-cell.focused,
     button.btn:focus, button.btn.focused {
       border: 3px solid #00d2d3 !important;
@@ -99,8 +61,6 @@
       background: #3c40c6 !important;
       color: #fff !important;
     }
-
-    /* MODE ÉDITION (Quand on a appuyé sur OK pour changer un chiffre : Fond Rouge) */
     button.nav-cell.editing {
       background: #ff4757 !important;
       border: 3px solid #ffd32a !important;
@@ -108,307 +68,388 @@
       transform: scale(1.12);
     }
 
-    .actions {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-top: 1px solid #2f3542;
-      padding-top: 12px;
-    }
-
+    .actions { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #2f3542; padding-top: 12px; }
     .help { font-size: 14px; color: #a4b0be; }
     .help b { color: #00d2d3; }
-
     .btn-group { display: flex; gap: 14px; }
-
-    button.btn {
-      padding: 9px 20px;
-      font-size: 16px;
-      font-weight: bold;
-      border-radius: 6px;
-      border: 2px solid transparent;
-      color: #fff;
-      cursor: pointer;
-      outline: none;
-    }
-
+    button.btn { padding: 9px 20px; font-size: 16px; font-weight: bold; border-radius: 6px; border: 2px solid transparent; color: #fff; cursor: pointer; outline: none; }
     .btn-save { background: #10ac84; }
     .btn-close { background: #576574; }
+
+    .mode-tabs { display: flex; gap: 10px; margin-bottom: 12px; }
+    button.mode-tab { flex: 1; padding: 10px; border-radius: 8px; border: 2px solid #57606f; background: #2f3542; color: #a4b0be; font-size: 16px; font-weight: bold; cursor: pointer; outline: none; }
+    button.mode-tab.active, button.mode-tab.active.focused, button.mode-tab.active:focus { background: #ff4757; border-color: #ffd32a; color: #fff; }
+    button.mode-tab.focused, button.mode-tab:focus { border: 3px solid #00d2d3; box-shadow: 0 0 15px #00d2d3; }
+
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 12px; }
+    .cal-head { color: #a4b0be; text-align: center; font-size: 13px; padding: 6px 0; }
+    button.cal-cell {
+      background: #2f3542; border: 2px solid #57606f; color: #a4b0be;
+      border-radius: 6px; text-align: center; padding: 8px 4px; font-size: 14px; cursor: pointer; outline: none;
+    }
+    button.cal-cell.assigned { background: #2a6e46; border-color: #1dd1a1; color: #fff; }
+    button.cal-cell.focused, button.cal-cell:focus { border: 3px solid #00d2d3; box-shadow: 0 0 12px #00d2d3; }
+    .cal-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 16px; color: #ced6e0; }
+    button.cal-nav-btn { padding: 8px 16px; border-radius: 6px; border: 2px solid #57606f; background: #2f3542; color: #fff; cursor: pointer; outline: none; font-size: 16px; }
+    button.cal-nav-btn.focused, button.cal-nav-btn:focus { border: 3px solid #00d2d3; box-shadow: 0 0 12px #00d2d3; }
+
+    .hidden { display: none; }
+    .status-line { font-size: 14px; color: #ced6e0; margin-bottom: 8px; }
+    .status-line b { color: #00d2d3; }
   </style>
 </head>
 <body tabindex="0">
 
-  <div id="osd-overlay">
-    <div class="panel">
-      <div class="header">
-        <h2>📅 PLANIFICATEUR (LUNDI - DIMANCHE)</h2>
-        <div class="info">
-          <span id="key-debug">Touche : attente...</span> &nbsp;|&nbsp;
-          Heure : <b id="clock" style="color:#00d2d3">--:--:--</b> &nbsp;|&nbsp; 
-          Auto-fermeture : <b id="timer-sec" style="color:#ff4757">60</b>s
-        </div>
+<div id="osd-overlay">
+  <div class="panel">
+    <div class="header">
+      <h2>📅 SCHEDULER (scheduler.tm2)</h2>
+      <div class="info">
+        <span id="key-debug">Touche : attente...</span> &nbsp;|&nbsp;
+        Heure : <b id="clock" style="color:#00d2d3">--:--:--</b> &nbsp;|&nbsp;
+        Auto-fermeture : <b id="timer-sec" style="color:#ff4757">60</b>s
       </div>
+    </div>
 
+    <div class="mode-tabs">
+      <button id="tab-days" class="mode-tab active" tabindex="1" onclick="setMode('days')">Jours types</button>
+      <button id="tab-cal" class="mode-tab" tabindex="2" onclick="setMode('cal')">Calendrier</button>
+    </div>
+
+    <!-- MODE JOURS TYPES -->
+    <div id="view-days">
+      <div class="status-line"><b>Jour type :</b> <span id="cur-day-info"></span></div>
       <table>
-        <thead>
-          <tr>
-            <th>Jour</th>
-            <th>Activé</th>
-            <th>Allumage (H : Min)</th>
-            <th>Extinction (H : Min)</th>
-            <th>Dossier</th>
-            <th>Volume</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Jour</th><th>Heure</th><th>Commande</th><th>Valeur</th></tr></thead>
         <tbody id="grid-body"></tbody>
       </table>
-
       <div class="actions">
-        <div class="help">
-          <b>Flèches</b> : Naviguer &nbsp;|&nbsp; 
-          <b>OK</b> : Modifier la case (+1) ou éditer avec <b>Haut/Bas</b>
-        </div>
+        <div class="help"><b>◀ ▶</b> : Jour/colonne &nbsp;|&nbsp; <b>▲ ▼</b> : valeur &nbsp;|&nbsp; <b>OK</b> : modifier</div>
         <div class="btn-group">
-          <button id="cell-7-0" class="btn btn-save" tabindex="100" onclick="saveAndClose()">💾 Enregistrer</button>
-          <button id="cell-7-1" class="btn btn-close" tabindex="101" onclick="closeOSD()">✖ Fermer</button>
+          <button id="btn-save" class="btn btn-save" tabindex="100" onclick="saveAndClose()">💾 Enregistrer</button>
+          <button id="btn-close" class="btn btn-close" tabindex="101" onclick="closeOSD()">✖ Fermer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODE CALENDRIER -->
+    <div id="view-cal" class="hidden">
+      <div class="cal-nav">
+        <button id="cal-prev" class="cal-nav-btn" onclick="calMove(-1)">◀</button>
+        <span id="cal-title" style="font-size:18px;font-weight:bold"></span>
+        <button id="cal-next" class="cal-nav-btn" onclick="calMove(1)">▶</button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="status-line">
+        Affecter au jour type : <b id="cal-assign-info"></b>
+        &nbsp;|&nbsp; <b>OK</b> sur une date : affecte | <b>▼</b> change le jour affecté
+      </div>
+      <div class="actions">
+        <div class="help"><b>◀ ▶</b> : date &nbsp;|&nbsp; <b>▲ ▼</b> : jour affecté &nbsp;|&nbsp; <b>OK</b> : affecter</div>
+        <div class="btn-group">
+          <button id="btn-save2" class="btn btn-save" tabindex="100" onclick="saveAndClose()">💾 Enregistrer</button>
+          <button id="btn-close2" class="btn btn-close" tabindex="101" onclick="closeOSD()">✖ Fermer</button>
         </div>
       </div>
     </div>
   </div>
+</div>
 
+<script src="tm2.js"></script>
 <script>
-  // Semaine commençant le Lundi (1) et finissant le Dimanche (0)
-  const DISPLAY_DAYS = [
-    { name: 'Lundi',    dayIndex: 1 },
-    { name: 'Mardi',    dayIndex: 2 },
-    { name: 'Mercredi', dayIndex: 3 },
-    { name: 'Jeudi',    dayIndex: 4 },
-    { name: 'Vendredi', dayIndex: 5 },
-    { name: 'Samedi',   dayIndex: 6 },
-    { name: 'Dimanche', dayIndex: 0 }
+  // ------------------------------------------------------------------ state
+  const COMMAND_LIST = [
+    { code: 0x00, label: 'PLAY FOLDER' },
+    { code: 0x01, label: 'PLAYBACK' },
+    { code: 0x02, label: 'STANDBY/WAKEUP' },
+    { code: 0x03, label: 'HDMI-CEC' },
+    { code: 0x05, label: 'PJLINK' }
   ];
 
-  let schedule = Array.from({ length: 7 }, () => ({
-    enabled: true, onH: 8, onM: 0, offH: 19, offM: 0, media: 1, volume: 80
-  }));
-
-  let curRow = 0; // 0..6 = Lundi..Dimanche, 7 = Boutons du bas
-  let curCol = 0; // 0..6 = Colonnes
+  let model = null;
+  let mode = 'days';
+  let curDay = 0;      // selected typical day index
+  let curEvent = 0;    // selected event row
+  let curCol = 0;      // 0=heure, 1=commande, 2=valeur
   let isEditing = false;
   let countdown = 60;
 
+  let calDate = null;  // current calendar month
+  let calSelDay = 0;   // typical day to assign in calendar mode
+  let calCellRow = 0;  // navigation within calendar grid (1-based day index)
+  let calCellMode = 'grid'; // grid | prev | next | save | close
+
+  function nowStamp() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, '0');
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}-${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
 
-  function renderGrid() {
-    const tbody = document.getElementById('grid-body');
-    tbody.innerHTML = '';
-    let tabIdx = 1;
+  function defaultModel() {
+    const today = new Date();
+    const y = today.getFullYear(), mo = today.getMonth();
+    const daysInMonth = new Date(y, mo + 1, 0).getDate();
+    const dates = {};
+    for (let d = 1; d <= daysInMonth; d++) {
+      dates[`${y}-${pad(mo + 1)}-${pad(d)}`] = 0;
+    }
+    return {
+      hdr: {
+        ver: 'SCH21.01',
+        device: 'eVP3x0--0100----My Video Player (VP320/VP330) / Event Video Player (EVP380)',
+        name: 'Planning OSD', author: 'osd',
+        moddate: nowStamp(), client: '', comments: '', softver: '2.3.3.0'
+      },
+      days: [
+        { name: 'Jour type 1', color: [0, 255, 0], events: [
+          { minute: 8 * 60, code: 0x02, value: 1, comment: '' },
+          { minute: 19 * 60, code: 0x02, value: 1, comment: '' }
+        ]}
+      ],
+      dates
+    };
+  }
 
-    DISPLAY_DAYS.forEach((dObj, rIdx) => {
-      const item = schedule[dObj.dayIndex];
-      const tr = document.createElement('tr');
-
-      tr.innerHTML = `
-        <td class="day-label">${dObj.name}</td>
-        <td>
-          <button type="button" id="cell-${rIdx}-0" tabindex="${tabIdx++}" class="nav-cell ${item.enabled ? 'chk-on' : 'chk-off'}"
-                  onfocus="syncCursor(${rIdx},0)" onclick="handleCellAction(${rIdx},0)">
-            ${item.enabled ? '✔ OUI' : '✖ NON'}
-          </button>
-        </td>
-        <td>
-          <button type="button" id="cell-${rIdx}-1" tabindex="${tabIdx++}" class="nav-cell"
-                  onfocus="syncCursor(${rIdx},1)" onclick="handleCellAction(${rIdx},1)">${pad(item.onH)} h</button> :
-          <button type="button" id="cell-${rIdx}-2" tabindex="${tabIdx++}" class="nav-cell"
-                  onfocus="syncCursor(${rIdx},2)" onclick="handleCellAction(${rIdx},2)">${pad(item.onM)} m</button>
-        </td>
-        <td>
-          <button type="button" id="cell-${rIdx}-3" tabindex="${tabIdx++}" class="nav-cell"
-                  onfocus="syncCursor(${rIdx},3)" onclick="handleCellAction(${rIdx},3)">${pad(item.offH)} h</button> :
-          <button type="button" id="cell-${rIdx}-4" tabindex="${tabIdx++}" class="nav-cell"
-                  onfocus="syncCursor(${rIdx},4)" onclick="handleCellAction(${rIdx},4)">${pad(item.offM)} m</button>
-        </td>
-        <td>
-          <button type="button" id="cell-${rIdx}-5" tabindex="${tabIdx++}" class="nav-cell"
-                  onfocus="syncCursor(${rIdx},5)" onclick="handleCellAction(${rIdx},5)">📁 ${item.media}</button>
-        </td>
-        <td>
-          <button type="button" id="cell-${rIdx}-6" tabindex="${tabIdx++}" class="nav-cell"
-                  onfocus="syncCursor(${rIdx},6)" onclick="handleCellAction(${rIdx},6)">🔊 ${item.volume}%</button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
-
+  // ------------------------------------------------------------------ render days
+  function renderDays() {
+    document.getElementById('cur-day-info').textContent =
+      `#${curDay + 1} — ${model.days[curDay].name}`;
+    const tb = document.getElementById('grid-body');
+    tb.innerHTML = '';
+    const evs = model.days[curDay].events;
+    if (!evs.length) {
+      tb.innerHTML = '<tr><td colspan="4">Aucun événement.</td></tr>';
+    } else {
+      evs.forEach((e, i) => {
+        const hh = pad(Math.floor(e.minute / 60)), mm = pad(e.minute % 60);
+        const cdef = COMMAND_LIST.find(c => c.code === e.code) || { label: '?' + e.code };
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><button id="ev-${i}-0" class="nav-cell" tabindex="${10 + i * 3}" onclick="focusEvent(${i},0)">${hh}:${mm}</button></td>
+          <td><button id="ev-${i}-1" class="nav-cell" tabindex="${11 + i * 3}" onclick="focusEvent(${i},1)">${cdef.label}</button></td>
+          <td><button id="ev-${i}-2" class="nav-cell" tabindex="${12 + i * 3}" onclick="focusEvent(${i},2)">${valueLabel(e)}</button></td>`;
+        tb.appendChild(tr);
+      });
+    }
     applyFocus();
   }
 
-  // Si le navigateur déplace lui-même le focus via Spatial Navigation (flèche droite/gauche native)
-  function syncCursor(r, c) {
-    if (curRow !== r || curCol !== c) {
-      curRow = r;
-      curCol = c;
-      isEditing = false;
-      updateVisualClasses();
+  function valueLabel(e) {
+    if (e.code === 0x00) return '📁 ' + e.value;
+    const map = { 0x01: ['', 'PLAY', 'STOP'], 0x02: ['', 'STANDBY', 'WAKEUP'], 0x03: ['', 'CEC ST', 'CEC WK'], 0x05: ['', 'PWR ON', 'PWR OFF'] };
+    const m = map[e.code];
+    return m ? (m[e.value] || e.value) : e.value;
+  }
+
+  // ------------------------------------------------------------------ navigation (days mode)
+  function focusEvent(i, c) { curEvent = i; curCol = c; isEditing = false; applyFocus(); }
+
+  function handleOk() {
+    if (mode === 'days') {
+      const e = model.days[curDay].events[curEvent];
+      if (!e) return;
+      if (curCol === 0) { // toggle editing of time
+        isEditing = !isEditing; renderDays();
+      } else if (curCol === 1) { // cycle command
+        const idx = COMMAND_LIST.findIndex(c => c.code === e.code);
+        const next = (idx + 1) % COMMAND_LIST.length;
+        e.code = COMMAND_LIST[next].code;
+        e.value = (e.code === 0x00) ? 1 : 1;
+        renderDays();
+      } else { // value
+        isEditing = !isEditing; renderDays();
+      }
+    } else if (mode === 'cal') {
+      calToggleAssign();
     }
   }
 
-  function updateVisualClasses() {
-    document.querySelectorAll('.focused, .editing').forEach(el => {
-      el.classList.remove('focused', 'editing');
+  function handleArrows(dir) { // dir: up/down/left/right
+    if (mode === 'days') {
+      const n = model.days[curDay].events.length;
+      if (isEditing) {
+        const e = model.days[curDay].events[curEvent];
+        if (!e) return;
+        if (curCol === 0) {
+          const step = (dir === 'up' || dir === 'right') ? 5 : -5;
+          e.minute = (e.minute + step + 1440) % 1440;
+        } else if (curCol === 2) {
+          const step = (dir === 'up' || dir === 'right') ? 1 : -1;
+          const max = e.code === 0x00 ? 999 : 2;
+          e.value = Math.min(max, Math.max(0, e.value + step));
+          if (e.code === 0x00 && e.value < 0) e.value = 999;
+        }
+        renderDays();
+        return;
+      }
+      if (dir === 'left' || dir === 'right') {
+        curCol = (curCol + (dir === 'right' ? 1 : 2)) % 3;
+      } else if (dir === 'up' || dir === 'down') {
+        if (n) curEvent = (curEvent + (dir === 'down' ? 1 : n - 1)) % n;
+      }
+      applyFocus();
+    } else if (mode === 'cal') {
+      calNavigate(dir);
+    }
+  }
+
+  // ------------------------------------------------------------------ calendar
+  function setMode(m) {
+    mode = m;
+    document.getElementById('tab-days').classList.toggle('active', m === 'days');
+    document.getElementById('tab-cal').classList.toggle('active', m === 'cal');
+    document.getElementById('view-days').classList.toggle('hidden', m !== 'days');
+    document.getElementById('view-cal').classList.toggle('hidden', m !== 'cal');
+    if (m === 'cal') {
+      const now = new Date();
+      calDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      calCellMode = 'grid';
+      renderCal();
+    } else {
+      renderDays();
+    }
+  }
+
+  function renderCal() {
+    const y = calDate.getFullYear(), mo = calDate.getMonth();
+    document.getElementById('cal-title').textContent =
+      `${['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'][mo]} ${y}`;
+    document.getElementById('cal-assign-info').textContent =
+      `#${calSelDay + 1} — ${model.days[calSelDay].name}`;
+
+    const grid = document.getElementById('cal-grid');
+    grid.innerHTML = '';
+    ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach(h => {
+      const c = document.createElement('div'); c.className = 'cal-head'; c.textContent = h; grid.appendChild(c);
     });
-    const activeEl = document.getElementById(`cell-${curRow}-${curCol}`);
-    if (activeEl) {
-      activeEl.classList.add('focused');
-      if (isEditing) activeEl.classList.add('editing');
+    const first = new Date(y, mo, 1).getDay();
+    const offset = (first + 6) % 7;
+    for (let i = 0; i < offset; i++) { const c = document.createElement('div'); grid.appendChild(c); }
+
+    const ndays = new Date(y, mo + 1, 0).getDate();
+    for (let d = 1; d <= ndays; d++) {
+      const iso = `${y}-${pad(mo + 1)}-${pad(d)}`;
+      const b = document.createElement('button');
+      b.className = 'cal-cell' + (model.dates[iso] !== undefined ? ' assigned' : '');
+      b.textContent = d;
+      b.id = 'cal-' + d;
+      b.tabindex = 20 + d;
+      b.onclick = () => { calCellRow = d; calToggleAssign(); };
+      grid.appendChild(b);
+    }
+  }
+
+  function calToggleAssign() {
+    const iso = isoForCalDay(calCellRow);
+    if (!iso) return;
+    if (model.dates[iso] === calSelDay) delete model.dates[iso];
+    else model.dates[iso] = calSelDay;
+    renderCal();
+  }
+
+  function isoForCalDay(d) {
+    const y = calDate.getFullYear(), mo = calDate.getMonth();
+    const ndays = new Date(y, mo + 1, 0).getDate();
+    if (d < 1 || d > ndays) return null;
+    return `${y}-${pad(mo + 1)}-${pad(d)}`;
+  }
+
+  function calMove(delta) {
+    calDate = new Date(calDate.getFullYear(), calDate.getMonth() + delta, 1);
+    calCellRow = 1; calCellMode = 'grid';
+    renderCal();
+  }
+
+  function calNavigate(dir) {
+    const y = calDate.getFullYear(), mo = calDate.getMonth();
+    const ndays = new Date(y, mo + 1, 0).getDate();
+    if (dir === 'left' || dir === 'right') {
+      if (calCellMode === 'grid') {
+        calCellRow += (dir === 'right' ? 1 : -1);
+        if (calCellRow > ndays) { calMove(1); }
+        if (calCellRow < 1) { calMove(-1); }
+      }
+    } else if (dir === 'up') {
+      calSelDay = (calSelDay + model.days.length - 1) % model.days.length;
+      renderCal();
+    } else if (dir === 'down') {
+      calSelDay = (calSelDay + 1) % model.days.length;
+      renderCal();
+    }
+  }
+
+  // ------------------------------------------------------------------ focus keeper
+  function currentEl() {
+    if (mode === 'days') {
+      const e = model.days[curDay].events[curEvent];
+      if (!e) return document.getElementById('btn-save');
+      return document.getElementById(`ev-${curEvent}-${curCol}`);
+    } else {
+      if (calCellMode === 'grid') return document.getElementById('cal-' + calCellRow);
+      if (calCellMode === 'prev') return document.getElementById('cal-prev');
+      if (calCellMode === 'next') return document.getElementById('cal-next');
+      return document.getElementById('btn-save2');
     }
   }
 
   function applyFocus() {
-    updateVisualClasses();
-    const activeEl = document.getElementById(`cell-${curRow}-${curCol}`);
-    if (activeEl && document.activeElement !== activeEl) {
-      activeEl.focus();
-    }
+    const el = currentEl();
+    if (el && document.activeElement !== el) el.focus();
   }
 
-  // Action quand on clique ou appuie sur OK sur une case
-  function handleCellAction(r, c) {
-    countdown = 60;
-    curRow = r;
-    curCol = c;
-    const dayIdx = DISPLAY_DAYS[r].dayIndex;
-
-    if (c === 0) {
-      schedule[dayIdx].enabled = !schedule[dayIdx].enabled;
-      renderGrid();
-    } else {
-      // Incrémente directement la valeur à chaque appui sur OK (et active aussi le mode édition Haut/Bas)
-      modifyValue(1);
-      isEditing = !isEditing;
-      renderGrid();
-    }
-  }
-
-  function modifyValue(delta) {
-    const dayIdx = DISPLAY_DAYS[curRow].dayIndex;
-    const item = schedule[dayIdx];
-
-    if (curCol === 1) item.onH = (item.onH + delta + 24) % 24;
-    else if (curCol === 2) item.onM = (item.onM + delta * 5 + 60) % 60;
-    else if (curCol === 3) item.offH = (item.offH + delta + 24) % 24;
-    else if (curCol === 4) item.offM = (item.offM + delta * 5 + 60) % 60;
-    else if (curCol === 5) {
-      item.media += delta;
-      if (item.media < 1) item.media = 20;
-      if (item.media > 20) item.media = 1;
-    }
-    else if (curCol === 6) {
-      item.volume += delta * 10;
-      if (item.volume > 100) item.volume = 0;
-      if (item.volume < 0) item.volume = 100;
-    }
-  }
-
-  // Interception prioritaire de toutes les touches télécommande
-  window.addEventListener('keydown', function(e) {
+  // ------------------------------------------------------------------ key handling
+  window.addEventListener('keydown', function (e) {
     countdown = 60;
     const code = e.keyCode || e.which;
-    const key  = e.key || '';
-
-    // Affichage en direct du code reçu en haut à droite !
+    const key = e.key || '';
     document.getElementById('key-debug').innerText = `Touche: ${key} (code ${code})`;
 
-    const isUp    = (key === 'ArrowUp'    || code === 38 || code === 19);
-    const isDown  = (key === 'ArrowDown'  || code === 40 || code === 20);
-    const isLeft  = (key === 'ArrowLeft'  || code === 37 || code === 21);
+    const isUp = (key === 'ArrowUp' || code === 38 || code === 19);
+    const isDown = (key === 'ArrowDown' || code === 40 || code === 20);
+    const isLeft = (key === 'ArrowLeft' || code === 37 || code === 21);
     const isRight = (key === 'ArrowRight' || code === 39 || code === 22);
-    const isOk    = (key === 'Enter'      || key === ' ' || code === 13 || code === 23 || code === 66);
+    const isOk = (key === 'Enter' || key === ' ' || code === 13 || code === 23 || code === 66);
 
     if (isUp || isDown || isLeft || isRight) {
-      e.preventDefault();
-      e.stopPropagation();
-
-      if (isEditing && curRow < 7) {
-        if (isUp || isRight)  modifyValue(1);
-        if (isDown || isLeft) modifyValue(-1);
-        renderGrid();
-        return;
-      }
-
-      if (isUp) {
-        if (curRow === 7) { curRow = 6; curCol = 0; }
-        else curRow = (curRow + 6) % 7;
-      } else if (isDown) {
-        if (curRow === 6) { curRow = 7; curCol = 0; }
-        else if (curRow === 7) { curRow = 0; curCol = 0; }
-        else curRow++;
-      } else if (isLeft) {
-        if (curRow === 7) curCol = (curCol === 0) ? 1 : 0;
-        else curCol = (curCol + 6) % 7;
-      } else if (isRight) {
-        if (curRow === 7) curCol = (curCol === 1) ? 0 : 1;
-        else curCol = (curCol + 1) % 7;
-      }
-
-      applyFocus();
+      e.preventDefault(); e.stopPropagation();
+      handleArrows(isUp ? 'up' : isDown ? 'down' : isLeft ? 'left' : 'right');
     } else if (isOk) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (curRow === 7) {
-        if (curCol === 0) saveAndClose();
-        else closeOSD();
-      } else {
-        handleCellAction(curRow, curCol);
-      }
+      e.preventDefault(); e.stopPropagation();
+      handleOk();
     }
   }, true);
 
-  // GARDIEN DE FOCUS : Force le navigateur à garder le focus toutes les 250ms
-  setInterval(() => {
-    window.focus();
-    const activeEl = document.getElementById(`cell-${curRow}-${curCol}`);
-    if (activeEl && document.activeElement !== activeEl) {
-      activeEl.focus();
-    }
-  }, 250);
+  setInterval(() => { window.focus(); applyFocus(); }, 250);
 
+  setInterval(() => {
+    const d = new Date();
+    document.getElementById('clock').innerText = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    countdown--;
+    document.getElementById('timer-sec').innerText = countdown;
+    if (countdown <= 0) closeOSD();
+  }, 1000);
+
+  // ------------------------------------------------------------------ save / close
   function closeOSD() {
     document.getElementById('osd-overlay').style.display = 'none';
     fetch('/api/web/stop').catch(() => {});
   }
 
   async function saveAndClose() {
-    const btn = document.getElementById('cell-7-0');
+    const btn = document.getElementById('btn-save');
     if (btn) btn.innerText = '⏳ Sauvegarde...';
+    model.hdr.moddate = nowStamp();
+    const enc = TM2.encode(model);
     try {
-      await fetch('/api/storage/schedule.json', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(schedule)
-      });
-    } catch(e) {}
+      localStorage.setItem('tm2', btoa(String.fromCharCode.apply(null, enc)));
+    } catch (e) {}
     closeOSD();
   }
 
-  setInterval(() => {
-    const d = new Date();
-    document.getElementById('clock').innerText = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-    countdown--;
-    const tEl = document.getElementById('timer-sec');
-    if (tEl) tEl.innerText = countdown;
-    if (countdown <= 0) closeOSD();
-  }, 1000);
-
-  async function loadSchedule() {
-    try {
-      const res = await fetch('/api/storage/schedule.json');
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length === 7) schedule = data;
-      }
-    } catch(e) {}
-    renderGrid();
+  function loadSchedule() {
+    model = defaultModel();
+    renderDays();
   }
 
   loadSchedule();

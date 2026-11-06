@@ -3,188 +3,579 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>VP320 - Web Remote</title>
+  <title>VP320 - Web Remote (Scheduler)</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: #0e1217; color: #fff; padding: 15px; }
-    .container { max-width: 600px; margin: 0 auto; }
-    header { text-align: center; margin-bottom: 20px; }
+    .container { max-width: 640px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 16px; }
     header h1 { font-size: 20px; color: #ff3b30; }
 
-    /* Onglets */
-    .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
-    .tab-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; background: #1c232d; color: #8fa0b5; font-size: 15px; font-weight: bold; cursor: pointer; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; background: #1c232d; color: #8fa0b5; font-size: 14px; font-weight: bold; cursor: pointer; }
     .tab-btn.active { background: #ff3b30; color: #fff; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    /* Section Cartes & Boutons */
-    .card { background: #171d26; border-radius: 12px; padding: 18px; margin-bottom: 15px; border: 1px solid #283344; }
-    .card h2 { font-size: 15px; color: #8fa0b5; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .btn { padding: 15px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; color: #fff; display: flex; align-items: center; justify-content: center; }
-    .btn-play { background: #34c759; }
-    .btn-pause { background: #ff9500; }
-    .btn-stop { background: #ff3b30; }
-    .btn-mute { background: #5856d6; }
-    .btn-pwr-on { background: #007aff; }
-    .btn-pwr-off { background: #3a4759; }
+    .card { background: #171d26; border-radius: 12px; padding: 16px; margin-bottom: 14px; border: 1px solid #283344; }
+    .card h2 { font-size: 14px; color: #8fa0b5; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
 
-    /* Contrôle Volume */
-    .vol-ctrl { display: flex; align-items: center; gap: 15px; margin-top: 10px; }
-    input[type=range] { flex: 1; height: 8px; border-radius: 4px; accent-color: #ff3b30; }
+    .btn { padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; color: #fff; }
+    .btn-primary { background: #34c759; }
+    .btn-danger { background: #ff3b30; }
+    .btn-ghost { background: #3a4759; }
+    .btn-sm { padding: 6px 12px; font-size: 13px; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
 
-    /* Éditeur de Planning */
-    .day-plan { background: #1f2733; padding: 12px; border-radius: 8px; margin-bottom: 10px; font-size: 14px; }
-    .day-plan-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .day-name { font-weight: bold; color: #fff; font-size: 16px; }
-    .day-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .day-grid label { display: block; font-size: 12px; color: #8fa0b5; margin-bottom: 3px; }
-    .day-grid input { width: 100%; padding: 8px; background: #0e1217; border: 1px solid #3a4759; border-radius: 4px; color: #fff; font-size: 14px; }
-    .btn-save { width: 100%; padding: 16px; background: #34c759; color: #fff; font-size: 17px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; }
+    .day-block { background: #1f2733; border-radius: 8px; margin-bottom: 10px; padding: 12px; }
+    .day-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; }
+    .day-name { font-weight: bold; font-size: 15px; flex: 1; }
+    .day-name input { background: #0e1217; border: 1px solid #3a4759; border-radius: 4px; color: #fff; padding: 6px; width: 100%; font-size: 14px; }
+    .color-pick { display: flex; gap: 6px; align-items: center; }
+    .color-swatch { width: 22px; height: 22px; border-radius: 4px; border: 2px solid #444; cursor: pointer; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 4px 6px; text-align: left; font-size: 13px; }
+    th { color: #8fa0b5; border-bottom: 1px solid #283344; }
+    input, select { background: #0e1217; border: 1px solid #3a4759; border-radius: 4px; color: #fff; padding: 5px; font-size: 13px; width: 100%; }
+    input[type=time] { width: auto; }
+    input[type=number] { width: 72px; }
+    .ev-del { background: #ff3b30; border: none; color: #fff; border-radius: 4px; padding: 4px 8px; cursor: pointer; }
+    .ev-add { width: 100%; padding: 8px; background: #0e1217; border: 1px dashed #3a4759; border-radius: 6px; color: #8fa0b5; cursor: pointer; margin-top: 8px; }
+
+    .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+    .cal-head { color: #8fa0b5; text-align: center; font-size: 11px; padding: 4px 0; }
+    .cal-cell { background: #0e1217; color: #5a6675; border-radius: 4px; text-align: center; padding: 6px 2px; font-size: 12px; cursor: pointer; }
+    .cal-cell.assigned { background: #2a6e46; color: #fff; }
+    .cal-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .cal-assign { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+    .legend { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .legend span { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #8fa0b5; }
+
+    .bar { margin-bottom: 8px; color: #ced6e0; font-size: 13px; }
+    .hint { color: #a4b0be; font-size: 13px; margin-top: 8px; }
+    .hint b { color: #00d2d3; }
   </style>
 </head>
 <body>
 
 <div class="container">
   <header>
-    <h1>VP320 Remote Control</h1>
+    <h1>VP320 — Scheduler</h1>
+    <div class="bar">Planning en <b>scheduler.tm2</b> (typical days + calendrier)</div>
   </header>
 
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('tab-live')">Télécommande</button>
-    <button class="tab-btn" onclick="switchTab('tab-sched')">Planning Hebdo</button>
+    <button class="tab-btn active" id="tab-btn-days" onclick="switchTab('days')">Jours types</button>
+    <button class="tab-btn" id="tab-btn-cal" onclick="switchTab('cal')">Calendrier</button>
+    <button class="tab-btn" id="tab-btn-engine" onclick="switchTab('engine')">Moteur</button>
+    <button class="tab-btn" id="tab-btn-rest" onclick="switchTab('rest')">Télécommande</button>
+    <button class="tab-btn" id="tab-btn-file" onclick="switchTab('file')">Fichier</button>
   </div>
 
-  <!-- ONGLET 1 : TÉLÉCOMMANDE DIRECTE -->
-  <div id="tab-live" class="tab-content active">
+  <!-- JOURS TYPES -->
+  <div id="tab-days" class="tab-content active">
     <div class="card">
-      <h2>Lecture Média</h2>
-      <div class="btn-grid">
-        <button class="btn btn-play" onclick="cmd('/api/player/resume')">▶ Lecture</button>
-        <button class="btn btn-pause" onclick="cmd('/api/player/pause')">⏸ Freeze (Pause)</button>
-        <button class="btn btn-stop" onclick="cmd('/api/player/stop')">⏹ Stop</button>
-        <button class="btn btn-mute" onclick="cmd('/api/player/mute')">🔇 Couper Son</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Volume en direct</h2>
-      <div class="vol-ctrl">
-        <span id="vol-txt">80%</span>
-        <input type="range" id="vol-slider" min="0" max="100" value="80" onchange="sendVolume(this.value)">
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Écrans & Vidéoprojecteur (PJLink / CEC)</h2>
-      <div class="btn-grid">
-        <button class="btn btn-pwr-on" onclick="sendPower(true)">⚡ Allumer Tout</button>
-        <button class="btn btn-pwr-off" onclick="sendPower(false)">⏻ Éteindre Tout</button>
+      <h2>Jours types</h2>
+      <div id="days-list"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary btn-sm" onclick="addDay()">+ Ajouter un jour type</button>
       </div>
     </div>
   </div>
 
-  <!-- ONGLET 2 : ÉDITEUR DU SCHEDULER -->
-  <div id="tab-sched" class="tab-content">
+  <!-- CALENDRIER -->
+  <div id="tab-cal" class="tab-content">
     <div class="card">
-      <h2>Programmation 7 Jours</h2>
-      <div id="sched-list"></div>
-      <button class="btn-save" onclick="saveWebSchedule()">💾 Enregistrer sur le Player</button>
+      <h2>Calendrier</h2>
+      <div class="cal-nav">
+        <button class="btn btn-ghost btn-sm" onclick="calPrev()">◀</button>
+        <b id="cal-title"></b>
+        <button class="btn btn-ghost btn-sm" onclick="calNext()">▶</button>
+      </div>
+      <div class="cal" id="cal-grid"></div>
+      <div class="cal-assign">
+        <span>Affecter :</span>
+        <select id="cal-day-select"></select>
+        <button class="btn btn-primary btn-sm" onclick="applyAssign()">Appliquer aux dates</button>
+        <button class="btn btn-danger btn-sm" onclick="clearAssign()">Effacer</button>
+      </div>
+      <div class="legend" id="cal-legend"></div>
+    </div>
+  </div>
+
+  <!-- MOTEUR (application du planning) -->
+  <div id="tab-engine" class="tab-content">
+    <div class="card">
+      <h2>Moteur de planning</h2>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="engine-start" onclick="engineStart()">▶ Lancer</button>
+        <button class="btn btn-danger" id="engine-stop" onclick="engineStop()" disabled>⏹ Arrêter</button>
+      </div>
+      <div id="engine-status" class="hint">Arrêté. Le moteur déclenche les événements du planning à la minute (via la REST API configurée dans « Télécommande »).</div>
+      <pre id="engine-log" style="background:#0e1217;border:1px solid #283344;border-radius:6px;padding:8px;margin-top:8px;font-size:12px;white-space:pre-wrap;max-height:220px;overflow:auto"></pre>
+    </div>
+  </div>
+
+  <!-- TÉLÉCOMMANDE (REST officiel, Digest auth) -->
+  <div id="tab-rest" class="tab-content">
+    <div class="card">
+      <h2>Connexion au player</h2>
+      <table>
+        <tr><td>IP / hôte</td><td><input id="rest-host" value="http://192.168.1.100" placeholder="http://<ip-du-player>"></td></tr>
+        <tr><td>Utilisateur</td><td><input id="rest-user" value="admin"></td></tr>
+        <tr><td>Mot de passe</td><td><input id="rest-pass" type="password" placeholder="••••"></td></tr>
+      </table>
+      <div class="btn-row">
+        <button class="btn btn-primary btn-sm" onclick="restTest()">Tester la connexion</button>
+        <button class="btn btn-ghost btn-sm" onclick="restSave()">Mémoriser</button>
+      </div>
+      <div id="rest-status" class="hint">Non connecté.</div>
+    </div>
+
+    <div class="card">
+      <h2>Lecture</h2>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="restCmd('/api/player/play')">▶ Lecture</button>
+        <button class="btn btn-ghost" onclick="restCmd('/api/player/pause')">⏸ Pause</button>
+        <button class="btn btn-ghost" onclick="restCmd('/api/player/resume')">⏯ Reprendre</button>
+        <button class="btn btn-danger" onclick="restCmd('/api/player/stop')">⏹ Stop</button>
+      </div>
+      <div class="btn-row" style="margin-top:8px">
+        <label>Dossier :</label>
+        <input type="number" id="rest-folder" min="0" max="999" value="1">
+        <button class="btn btn-primary" onclick="restPlayFolder()">▶ Lire le dossier</button>
+      </div>
+      <div class="btn-row" style="margin-top:8px">
+        <label>Volume :</label>
+        <input type="number" id="rest-vol" min="0" max="100" value="80">
+        <button class="btn btn-ghost" onclick="restSetVolume()">Régler</button>
+        <button class="btn btn-ghost" onclick="restCmd('/api/player/mute')">🔇 Muet</button>
+        <button class="btn btn-ghost" onclick="restCmd('/api/player/unmute')">🔊 Son</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Alimentation / Écran / Projecteur</h2>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="restCmd('/api/videoprojector/poweron')">Projecteur ON</button>
+        <button class="btn btn-danger" onclick="restCmd('/api/videoprojector/poweroff')">Projecteur OFF</button>
+        <button class="btn btn-primary" onclick="restCmd('/api/display/wakeup')">Écran ON (CEC)</button>
+        <button class="btn btn-danger" onclick="restCmd('/api/display/standby')">Écran OFF (CEC)</button>
+        <button class="btn btn-primary" onclick="restCmd('/api/power/wakeup')">Player ON</button>
+        <button class="btn btn-danger" onclick="restCmd('/api/power/standby')">Player veille</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>État</h2>
+      <button class="btn btn-ghost" onclick="restState()">État du player</button>
+      <button class="btn btn-ghost" onclick="restStorages()">Stocks / dossiers</button>
+      <pre id="rest-out" style="background:#0e1217;border:1px solid #283344;border-radius:6px;padding:8px;margin-top:8px;font-size:12px;white-space:pre-wrap;max-height:200px;overflow:auto"></pre>
+    </div>
+  </div>
+
+  <!-- FICHIER -->
+  <div id="tab-file" class="tab-content">
+    <div class="card">
+      <h2>Charger / Sauvegarder</h2>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="save()">💾 Générer scheduler.tm2</button>
+        <button class="btn btn-primary" onclick="download()">⬇ Télécharger .tm2</button>
+        <label class="btn btn-ghost" style="display:inline-block">⬆ Importer .tm2<input type="file" id="file-import" accept=".tm2" style="display:none" onchange="importFile(event)"></label>
+        <button class="btn btn-ghost" onclick="saveLocal()">💾 Sauvegarder localement</button>
+        <button class="btn btn-ghost" onclick="loadLocal()">📂 Restaurer localement</button>
+        <button class="btn btn-ghost" onclick="exportJson()">⬇ Exporter modèle JSON</button>
+      </div>
+      <div class="hint">Le player attend <b>scheduler.tm2</b> dans le dossier <b>/SYSTEM/</b>. Le nom ne doit pas être modifié. Déploiement du fichier : via FTP (l'API REST officielle ne permet pas l'écriture de fichiers arbitraires).</div>
     </div>
   </div>
 </div>
 
+<script src="tm2.js"></script>
+<script src="engine.js"></script>
+<script src="api.js"></script>
 <script>
-  const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-  let currentSchedule = [];
+  // ------------------------------------------------------------------ state
+  const COMMAND_LIST = [
+    { code: 0x00, label: 'PLAY FOLDER', value: 1, min: 0, max: 999 },
+    { code: 0x01, label: 'PLAYBACK', value: 1, min: 1, max: 2 },   // 1=PLAY 2=STOP
+    { code: 0x02, label: 'STANDBY / WAKEUP', value: 1, min: 1, max: 2 },
+    { code: 0x03, label: 'HDMI-CEC', value: 1, min: 1, max: 2 },
+    { code: 0x05, label: 'VIDEO PROJECTOR (PJLINK)', value: 1, min: 1, max: 2 }
+  ];
+  const VALUE_LABELS = {
+    0x01: ['', 'PLAY', 'STOP'],
+    0x02: ['', 'STANDBY', 'WAKEUP'],
+    0x03: ['', 'CEC STANDBY', 'CEC WAKEUP'],
+    0x05: ['', 'POWER ON', 'POWER OFF']
+  };
 
-  function switchTab(id) {
-    document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', (i === (id === 'tab-live' ? 0 : 1))));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-    if (id === 'tab-sched') loadWebSchedule();
+  let model = null;
+  let calDate = new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), 1));
+  let pendingDates = [];
+
+  function nowStamp() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, '0');
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}-${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
   }
 
-  // Appels API Télécommande Directe
-  async function cmd(url) {
-    try { await fetch(url, { method: 'POST' }); } catch(e) { alert("Erreur commande : " + e); }
+  function defaultModel() {
+    return {
+      hdr: {
+        ver: 'SCH21.01',
+        device: 'eVP3x0--0100----My Video Player (VP320/VP330) / Event Video Player (EVP380)',
+        name: 'Planning',
+        author: 'web',
+        moddate: nowStamp(),
+        client: '',
+        comments: '',
+        softver: '2.3.3.0'
+      },
+      days: [],
+      dates: {}
+    };
   }
 
-  async function sendVolume(val) {
-    document.getElementById('vol-txt').innerText = val + '%';
-    await fetch(`/api/player/volume/${val}`, { method: 'POST' });
-  }
-
-  async function sendPower(on) {
-    await fetch(`/api/system/cec/${on ? 'wakeup' : 'standby'}`, { method: 'POST' });
-    await fetch('/api/pjlink/power', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ power: on ? 1 : 0 })
-    });
-  }
-
-  // Fonctions de l'Éditeur de Planning
-  const pad = n => String(n).padStart(2, '0');
-
-  async function loadWebSchedule() {
-    try {
-      const res = await fetch('/api/storage/schedule.json');
-      currentSchedule = await res.json();
-    } catch(e) {
-      currentSchedule = Array(7).fill(null).map(() => ({ enabled: true, onH: 8, onM: 0, offH: 19, offM: 0, media: 1, volume: 80 }));
-    }
-    renderEditor();
-  }
-
-  function renderEditor() {
-    const root = document.getElementById('sched-list');
+  // ------------------------------------------------------------------ days
+  function renderDays() {
+    const root = document.getElementById('days-list');
     root.innerHTML = '';
-    currentSchedule.forEach((plan, i) => {
+    if (!model.days.length) { root.innerHTML = '<div class="hint">Aucun jour type. Ajoutez-en un pour commencer.</div>'; return; }
+    model.days.forEach((day, i) => {
+      day.color = normColor(day.color);
       const div = document.createElement('div');
-      div.className = 'day-plan';
+      div.className = 'day-block';
       div.innerHTML = `
-        <div class="day-plan-header">
-          <span class="day-name">${DAYS[i]}</span>
-          <label><input type="checkbox" id="chk-${i}" ${plan.enabled ? 'checked' : ''}> Actif</label>
+        <div class="day-head">
+          <div class="day-name"><input id="dname-${i}" value="${esc(day.name)}" onchange="model.days[${i}].name=this.value" placeholder="Nom du jour type"></div>
+          <div class="color-pick">
+            <input type="color" id="dcol-${i}" value="${rgbToHex(day.color)}" onchange="model.days[${i}].color=${hexToRgb(this.value)}" style="width:34px;height:26px;padding:0;border:none;background:none">
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="delDay(${i})">✖</button>
         </div>
-        <div class="day-grid">
-          <div><label>Début</label><input type="time" id="on-${i}" value="${pad(plan.onH)}:${pad(plan.onM)}"></div>
-          <div><label>Fin</label><input type="time" id="off-${i}" value="${pad(plan.offH)}:${pad(plan.offM)}"></div>
-          <div><label>Dossier Média</label><input type="number" id="med-${i}" min="1" max="999" value="${plan.media}"></div>
-          <div><label>Volume (%)</label><input type="number" id="vol-${i}" min="0" max="100" value="${plan.volume}"></div>
-        </div>
-      `;
+        <table>
+          <thead><tr><th>Heure</th><th>Commande</th><th>Valeur</th><th></th></tr></thead>
+          <tbody id="drows-${i}"></tbody>
+        </table>
+        <button class="ev-add" onclick="addEvent(${i})">+ Ajouter un événement</button>`;
       root.appendChild(div);
+      renderDayEvents(i);
     });
   }
 
-  async function saveWebSchedule() {
-    DAYS.forEach((_, i) => {
-      const [onH, onM] = document.getElementById(`on-${i}`).value.split(':').map(Number);
-      const [offH, offM] = document.getElementById(`off-${i}`).value.split(':').map(Number);
-      currentSchedule[i] = {
-        enabled: document.getElementById(`chk-${i}`).checked,
-        onH, onM, offH, offM,
-        media: parseInt(document.getElementById(`med-${i}`).value),
-        volume: parseInt(document.getElementById(`vol-${i}`).value)
-      };
+  function renderDayEvents(i) {
+    const day = model.days[i];
+    const tb = document.getElementById('drows-' + i);
+    tb.innerHTML = '';
+    if (!day.events.length) { tb.innerHTML = '<tr><td colspan="4" class="hint">Aucun événement.</td></tr>'; return; }
+    day.events.forEach((e, j) => {
+      const hh = String(Math.floor(e.minute / 60)).padStart(2, '0');
+      const mm = String(e.minute % 60).padStart(2, '0');
+      const cdef = COMMAND_LIST.find(c => c.code === e.code);
+      const valueOptions = valueOptionsFor(e.code, e.value);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input type="time" id="etime-${i}-${j}" value="${hh}:${mm}" onchange="setEventMinute(${i},${j},this.value)"></td>
+        <td><select id="ecmd-${i}-${j}" onchange="setEventCode(${i},${j},this.value)">${COMMAND_LIST.map(c => `<option value="${c.code}" ${c.code === e.code ? 'selected' : ''}>${c.label}</option>`).join('')}</select></td>
+        <td><select id="eval-${i}-${j}" ${valueOptions.length ? '' : 'style="display:none"'}>${valueOptions}</select>
+            <input type="number" id="enum-${i}-${j}" min="0" max="999" value="${e.value}" style="${e.code === 0x00 ? '' : 'display:none'}" onchange="model.days[${i}].events[${j}].value=parseInt(this.value)||0"></td>
+        <td><button class="ev-del" onclick="delEvent(${i},${j})">✖</button></td>`;
+      tb.appendChild(tr);
     });
+    // bind selects
+    day.events.forEach((e, j) => {
+      const sel = document.getElementById(`eval-${i}-${j}`);
+      if (sel) { sel.value = e.value; sel.onchange = () => { model.days[i].events[j].value = parseInt(sel.value); }; }
+    });
+  }
 
-    try {
-      await fetch('/api/storage/schedule.json', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(currentSchedule)
-      });
-      alert("✅ Planning enregistré et synchronisé avec le player !");
-    } catch(e) {
-      alert("Erreur lors de l'enregistrement : " + e);
+  function valueOptionsFor(code, current) {
+    if (code === 0x00) return '';
+    const labels = VALUE_LABELS[code] || [];
+    let opts = '';
+    for (let v = 1; v < labels.length; v++) opts += `<option value="${v}" ${v === current ? 'selected' : ''}>${labels[v]}</option>`;
+    return opts;
+  }
+
+  function setEventMinute(i, j, val) {
+    const [h, m] = val.split(':').map(Number);
+    model.days[i].events[j].minute = h * 60 + m;
+  }
+  function setEventCode(i, j, code) {
+    const c = parseInt(code);
+    const e = model.days[i].events[j];
+    e.code = c;
+    const def = COMMAND_LIST.find(x => x.code === c);
+    e.value = def.value;
+    renderDayEvents(i);
+  }
+
+  function addDay() {
+    model.days.push({ name: 'Jour type ' + (model.days.length + 1), color: [0, 255, 0], events: [] });
+    renderDays(); renderLegend();
+  }
+  function normColor(c) { return (Array.isArray(c) && c.length >= 3) ? c : [0, 255, 0]; }
+  function delDay(i) {
+    model.days.splice(i, 1);
+    // clean calendar references
+    for (const k in model.dates) if (model.dates[k] === i) delete model.dates[k];
+    // re-index (days after removed)
+    const n = model.days.length;
+    for (const k in model.dates) if (model.dates[k] > i) model.dates[k]--;
+    renderDays(); renderCal(); renderLegend();
+  }
+  function addEvent(i) {
+    const day = model.days[i];
+    day.events.push({ minute: 0, code: 0x00, value: 1, comment: '' });
+    renderDayEvents(i);
+  }
+  function delEvent(i, j) { model.days[i].events.splice(j, 1); renderDayEvents(i); }
+
+  // ------------------------------------------------------------------ calendar
+  function renderCal() {
+    const grid = document.getElementById('cal-grid');
+    const title = document.getElementById('cal-title');
+    grid.innerHTML = '';
+    const y = calDate.getUTCFullYear(), mo = calDate.getUTCMonth();
+    title.textContent = `${['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'][mo]} ${y}`;
+
+    const heads = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+    heads.forEach(h => { const c = document.createElement('div'); c.className = 'cal-head'; c.textContent = h; grid.appendChild(c); });
+
+    const first = new Date(Date.UTC(y, mo, 1)).getUTCDay(); // 0=Sun
+    const offset = (first + 6) % 7; // Monday=0
+    for (let i = 0; i < offset; i++) { const c = document.createElement('div'); c.className = 'cal-cell'; c.style.visibility = 'hidden'; grid.appendChild(c); }
+
+    const ndays = new Date(Date.UTC(y, mo + 1, 0)).getUTCDate();
+    for (let d = 1; d <= ndays; d++) {
+      const iso = `${y}-${String(mo + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const sel = document.createElement('div');
+      sel.className = 'cal-cell' + (model.dates[iso] !== undefined ? ' assigned' : '');
+      sel.textContent = d;
+      sel.style.background = model.dates[iso] !== undefined ? dayColor(model.dates[iso]) : sel.style.background;
+      sel.onclick = () => { toggleDate(iso); };
+      grid.appendChild(sel);
     }
   }
 
-  loadWebSchedule();
+  function toggleDate(iso) {
+    const i = pendingDates.indexOf(iso);
+    if (i >= 0) pendingDates.splice(i, 1); else pendingDates.push(iso);
+    renderCal(); renderPending();
+  }
+
+  function renderPending() {
+    const sel = document.getElementById('cal-day-select');
+    sel.innerHTML = model.days.map((d, i) => `<option value="${i}">${esc(d.name)}</option>`).join('');
+    const p = document.getElementById('cal-assign-hint');
+  }
+
+  function applyAssign() {
+    const di = parseInt(document.getElementById('cal-day-select').value);
+    if (isNaN(di) || di < 0) return;
+    pendingDates.forEach(iso => { model.dates[iso] = di; });
+    pendingDates = [];
+    renderCal();
+  }
+
+  function clearAssign() {
+    pendingDates.forEach(iso => { delete model.dates[iso]; });
+    pendingDates = [];
+    renderCal();
+  }
+
+  function calPrev() { calDate = new Date(Date.UTC(calDate.getUTCFullYear(), calDate.getUTCMonth() - 1, 1)); pendingDates = []; renderCal(); }
+  function calNext() { calDate = new Date(Date.UTC(calDate.getUTCFullYear(), calDate.getUTCMonth() + 1, 1)); pendingDates = []; renderCal(); }
+
+  function renderLegend() {
+    const leg = document.getElementById('cal-legend');
+    leg.innerHTML = model.days.map((d, i) =>
+      `<span><span style="width:14px;height:14px;background:${dayColor(i)};border-radius:3px;display:inline-block"></span>${esc(d.name)}</span>`).join('');
+  }
+
+  function dayColor(i) {
+    const d = model.days[i];
+    return d && d.color ? `rgb(${d.color[0]},${d.color[1]},${d.color[2]})` : '#2a6e46';
+  }
+
+  // ------------------------------------------------------------------ file
+  function save() {
+    model.hdr.moddate = nowStamp();
+    const enc = TM2.encode(model);
+    // Try REST write (Phase 3 placeholder), else just report success
+    const blob = new Blob([enc], { type: 'application/octet-stream' });
+    localStorage.setItem('tm2', btoa(String.fromCharCode.apply(null, enc)));
+    alert(`TM2 généré : ${enc.length} octets. Enregistré localement.`);
+  }
+
+  function download() {
+    model.hdr.moddate = nowStamp();
+    const enc = TM2.encode(model);
+    const blob = new Blob([enc], { type: 'application/octet-stream' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'scheduler.tm2';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+
+  function importFile(ev) {
+    const f = ev.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      model = TM2.parse(new Uint8Array(r.result));
+      if (!model.days) model.days = [];
+      if (!model.dates) model.dates = {};
+      renderDays(); renderCal(); renderLegend(); renderPending();
+      alert(`Fichier importé : ${model.ndays} jour(s) type, ${model.nevents} événement(s).`);
+    };
+    r.readAsArrayBuffer(f);
+  }
+
+  function saveLocal() { localStorage.setItem('tm2-model', JSON.stringify(model)); alert('Modèle sauvegardé localement.'); }
+  function exportJson() {
+    const blob = new Blob([JSON.stringify(model, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'schedule-model.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+  function loadLocal() {
+    const s = localStorage.getItem('tm2-model');
+    if (!s) { alert('Aucune sauvegarde locale.'); return; }
+    model = JSON.parse(s);
+    renderDays(); renderCal(); renderLegend(); renderPending();
+    alert('Modèle restauré.');
+  }
+
+  // ------------------------------------------------------------------ helpers
+  function switchTab(id) {
+    ['days', 'cal', 'engine', 'rest', 'file'].forEach(t => {
+      document.getElementById('tab-' + t).classList.toggle('active', t === id);
+      document.getElementById('tab-btn-' + t).classList.toggle('active', t === id);
+    });
+    if (id === 'cal') { renderCal(); renderLegend(); renderPending(); }
+    if (id === 'rest') restInit();
+  }
+  function esc(s) { return (s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function rgbToHex(c) { c = normColor(c); return '#' + c.map(x => x.toString(16).padStart(2, '0')).join(''); }
+  function hexToRgb(h) { const n = parseInt((h || '#00ff00').slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+
+  // ------------------------------------------------------------------ REST (Digest auth)
+  let restClient = null;
+
+  function restInit() {
+    const saved = JSON.parse(localStorage.getItem('vp-rest') || '{}');
+    if (saved.host) document.getElementById('rest-host').value = saved.host;
+    if (saved.user) document.getElementById('rest-user').value = saved.user;
+    if (saved.pass) document.getElementById('rest-pass').value = saved.pass;
+  }
+
+  function restSave() {
+    localStorage.setItem('vp-rest', JSON.stringify({
+      host: document.getElementById('rest-host').value,
+      user: document.getElementById('rest-user').value,
+      pass: document.getElementById('rest-pass').value
+    }));
+    document.getElementById('rest-status').textContent = 'Connexion mémorisée.';
+  }
+
+  function restBuildClient() {
+    const host = document.getElementById('rest-host').value.replace(/\/$/, '');
+    const user = document.getElementById('rest-user').value;
+    const pass = document.getElementById('rest-pass').value;
+    restClient = VPAPI.createClient({ base: host, username: user, password: pass });
+    return restClient;
+  }
+
+  async function restTest() {
+    const c = restBuildClient();
+    document.getElementById('rest-status').textContent = 'Connexion...';
+    try {
+      const res = await c.request('/api/auth/login', 'POST');
+      document.getElementById('rest-status').textContent =
+        res.status === 200 ? '✅ Connecté (HTTP 200)' : `❌ HTTP ${res.status} — identifiants ou hôte incorrects`;
+    } catch (e) {
+      document.getElementById('rest-status').textContent = '❌ Erreur réseau : ' + e.message;
+    }
+  }
+
+  async function restCmd(path, query) {
+    const c = restBuildClient();
+    document.getElementById('rest-status').textContent = 'Commande : ' + path + ' ...';
+    try {
+      const res = await c.cmd(path, query);
+      document.getElementById('rest-status').textContent = `✅ ${res.status} — ${path}`;
+      await restDump(res);
+    } catch (e) {
+      document.getElementById('rest-status').textContent = '❌ ' + e.message;
+    }
+  }
+
+  function restPlayFolder() {
+    const f = document.getElementById('rest-folder').value;
+    restCmd('/api/player/play-folder', { folder: f });
+  }
+  function restSetVolume() {
+    const v = document.getElementById('rest-vol').value;
+    restCmd('/api/player/set-volume', { volume: v, relative: false });
+  }
+  async function restState() { await restGet('/api/system/state'); }
+  async function restStorages() { await restGet('/api/storages'); }
+
+  async function restGet(path) {
+    const c = restBuildClient();
+    try {
+      const res = await c.request(path, 'GET');
+      document.getElementById('rest-status').textContent = `✅ HTTP ${res.status} — ${path}`;
+      await restDump(res);
+    } catch (e) { document.getElementById('rest-status').textContent = '❌ ' + e.message; }
+  }
+
+  async function restDump(res) {
+    let txt = 'HTTP ' + res.status + '\n';
+    try { txt += JSON.stringify(await res.json(), null, 2); }
+    catch (e) { txt += await res.text().catch(() => '(aucune donnée)'); }
+    document.getElementById('rest-out').textContent = txt;
+  }
+
+  // ------------------------------------------------------------------ engine (Phase 4)
+  let daemon = null;
+  function engineStart() {
+    if (!ENGINE) { document.getElementById('engine-status').textContent = '❌ Moteur non chargé.'; return; }
+    if (daemon && daemon.isRunning()) return;
+    const client = restBuildClient();
+    const model = window.model;    const log = document.getElementById('engine-log');
+    log.textContent = 'Moteur lancé à ' + new Date().toTimeString().slice(0, 8) + '\n';
+    daemon = ENGINE.createDaemon({
+      model,
+      client: { cmd: (p, q) => client.cmd(p, q).then(() => {
+        log.textContent += '→ ' + new Date().toTimeString().slice(0, 8) + ' ' + p + (q ? ' ' + JSON.stringify(q) : '') + '\n';
+      }) },
+      now: () => new Date(),
+      onTick: (t) => { if (t.day === null) return; },
+      onEvent: (o) => { log.textContent += '⏱ ' + new Date().toTimeString().slice(0, 8) + ' → ' + o.rest.path + (o.rest.query ? ' ' + JSON.stringify(o.rest.query) : '') + '\n'; },
+      onError: (e) => { log.textContent += '⚠ ' + e.message + '\n'; }
+    });
+    daemon.start();
+    document.getElementById('engine-status').textContent = '✅ En cours — déclenchement à chaque changement de minute.';
+    document.getElementById('engine-start').disabled = true;
+    document.getElementById('engine-stop').disabled = false;
+  }
+  function engineStop() {
+    if (daemon) { daemon.stop(); daemon = null; }
+    document.getElementById('engine-status').textContent = 'Arrêté.';
+    document.getElementById('engine-start').disabled = false;
+    document.getElementById('engine-stop').disabled = true;
+  }
+
+  // ------------------------------------------------------------------ init
+  model = defaultModel();
+  renderDays();
 </script>
 </body>
 </html>
