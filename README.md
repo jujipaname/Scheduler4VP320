@@ -33,7 +33,7 @@ VP320 / VP330
 | `api.js` | Client REST officiel avec **Digest auth** en JS pur (MD5 RFC 1321, RFC 2617) |
 | `deploy.js` | Déploiement FTP du `scheduler.tm2` vers `/SYSTEM/` (`npm install` puis `node deploy.js <model.json> <ip> <user> <pass>`) |
 | `test-runner.js` | Suite hors-ligne (roundtrip TM2, moteur, MD5/Digest) |
-| `validate-player.js` | Validation **live** : auth Digest + upload FTP **(requis : player joignable)** |
+| `validate-player.js` | Validation **live** : auth Digest, **version firmware** (`/api/system/attributes`), stockages, upload FTP avec **sauvegarde de l'ancien fichier** **(requis : player joignable)** |
 | `run-tests.bat` / `run-tests.ps1` | Orchestrateur Windows — cf. `procedureTest.md`. Live : `run-tests.bat -Host <ip> -User admin -Pass <mdp> [-Upload]` |
 
 ## Modèle de planning (format officiel)
@@ -47,7 +47,8 @@ VP320 / VP330
 ## Persistance
 
 L'API REST officielle ne permet pas l'écriture de fichiers arbitraires ; le déploiement
-du `.tm2` se fait donc en **FTP** (`deploy.js` ou via le kit de test avec `-Upload`) :
+du `.tm2` se fait donc en **FTP** (`deploy.js` ou via le kit de test avec `-Upload`, qui sauvegarde d'abord
+l'ancien fichier en `scheduler.tm2.backup`) :
 1. Éditer le planning (OSD ou `remote.html`), « ⬇ Télécharger .tm2 ».
 2. Copier le fichier en **`/SYSTEM/scheduler.tm2`** sur le player.
 3. Le firmware (≥ **V1.13.1**) l'interprète à chaque changement de minute — horloge

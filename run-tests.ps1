@@ -5,7 +5,8 @@
 #   - live validation (validate-player.js): REST Digest + FTP to the player.
 #
 # Usage (PowerShell):
-#   .\run-tests.ps1 -Host 192.168.1.100 -User admin -Pass yourPassword [-Upload] [-HttpPort 80] [-FtpPort 21]
+#   .\run-tests.ps1 -Host 192.168.1.100 -User admin -Pass yourPassword [-Upload]
+#                    [-HttpPort 80] [-FtpPort 21] [-FtpUser ...] [-FtpPass ...] [-NoBackup]
 #
 # Without -Host: only the offline part is executed.
 #
@@ -26,7 +27,10 @@ param(
     [string]$Pass = "",
     [switch]$Upload,
     [int]$HttpPort = 80,
-    [int]$FtpPort = 21
+    [int]$FtpPort = 21,
+    [string]$FtpUser = "",
+    [string]$FtpPass = "",
+    [switch]$NoBackup
 )
 
 $ErrorActionPreference = "Continue"
@@ -121,6 +125,9 @@ if ($PlayerHost) {
         "--out=report-live.json"
     )
     if ($Upload) { $vpArgs += "--upload=1" }
+    if ($FtpUser) { $vpArgs += "--ftp-user=$FtpUser" }
+    if ($FtpPass) { $vpArgs += "--ftp-pass=$FtpPass" }
+    if ($NoBackup) { $vpArgs += "--no-backup" }
 
     & node validate-player.js $vpArgs
     $liveExit = $LASTEXITCODE

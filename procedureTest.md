@@ -80,6 +80,22 @@ powershell -ExecutionPolicy Bypass -File .\run-tests.ps1 `
 
 Si le serveur FTP du player n'est pas sur le port 21 : ajouter `-FtpPort 21`.
 
+**Compte FTP distinct du compte REST** : sur certains players le serveur FTP a ses
+propres identifiants (ou refuse le compte `admin`). Dans ce cas :
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\run-tests.ps1 `
+    -Host 192.168.1.100 -User admin -Pass "MotDePasseWeb" `
+    -Upload -FtpUser ftp -FtpPass "MotDePasseFtp"
+```
+
+Une réponse `530 Authentication failed` (visible dans le rapport) signifie que le
+serveur FTP refuse le couple utilisateur/mot de passe : ce n'est **pas** un problème
+d'API REST (le Digest, lui, est validé juste avant).
+
+Avant d'écrire, le script **télécharge l'ancien `/SYSTEM/scheduler.tm2`** dans
+`scheduler.tm2.backup` (sauvegarde automatique). `-NoBackup` désactive ce filet.
+
 > `-Pass` et `-Upload` sont sensibles à la casse des commutateurs (`-Upload` avec
 > une majuscule).
 
@@ -99,7 +115,8 @@ run-tests.bat -Host 192.168.1.100 -User admin -Pass mdp
 | **`REPORT.json`** | Idem, au format JSON (lisible par machine) |
 | `report.json` | Détail de la suite hors-ligne |
 | `report-live.json` | Détail de la validation live |
-| `player-state.json` | État complet renvoyé par le player (`/api/system/state` + `/api/storages`) : version firmware, NTP, stockages montés |
+| `player-state.json` | État complet renvoyé par le player (`/api/system/attributes`, `/api/system/state`, `/api/storages`, dossiers médias, bannière FTP) : firmware, NTP, stockages montés |
+| `scheduler.tm2.backup` | Sauvegarde de l'ancien `/SYSTEM/scheduler.tm2` récupérée avant l'upload (`-Upload`) |
 
 Le terminal affiche aussi les résultats en direct (`PASS` / `FAIL`).
 
@@ -118,12 +135,17 @@ Un **résultat attendu** est :
   - `Serveur web joignable` → **PASS** (le player répond).
   - `Auth Digest /api/auth/login` → **PASS** (HTTP 200) ⇒ les identifiants et
     l'authentification Digest fonctionnent.
+  - `GET /api/system/attributes (firmware)` → **PASS** ⇒ le modèle, le numéro de
+    série et la **version firmware** sont lisibles. **FAIL** si le firmware est
+    antérieur à **1.13.1** (le `scheduler.tm2` n'est alors pas interprété) :
+    mettre à jour le player avant de continuer.
   - `GET /api/system/state` → **PASS** (HTTP 200) ⇒ l'API officielle est bien
     interprétée. Le détail indique la **version firmware** détectée.
   - `GET /api/storages` → **PASS** (HTTP 200) ⇒ le player liste ses stockages
     (utile pour confirmer la présence de la clé USB et du dossier `/SYSTEM/`).
   - `FTP upload /SYSTEM/scheduler.tm2` (si `-Upload`) → **PASS** ⇒ le fichier est
-    bien déposé et relu par le player.
+    bien déposé ; le détail indique la taille envoyée et la taille de la sauvegarde
+    `scheduler.tm2.backup`.
 
 ---
 
@@ -135,6 +157,9 @@ Un **résultat attendu** est :
 | `Auth Digest ... FAIL` | Mauvais identifiants, ou player non joignable | Vérifier `-User`/`-Pass` et l'IP (`-Host`) |
 | `Serveur web joignable ... FAIL` | IP incorrecte ou player éteint | Vérifier `ping <ip>` depuis la machine |
 | `FTP upload ... FAIL` | Serveur FTP désactivé ou port non standard | Activer le FTP sur le player, renseigner `-FtpPort` |
+| `FTP upload ... : 530 Authentication failed` | Compte FTP différent du compte REST/Digest | Renseigner `-FtpUser` / `-FtpPass` (ou `anonymous`) ; vérifier le réglage FTP du player |
+| `FTP upload ... : 550` | `/SYSTEM` absent sur le stockage cible | Vérifier le stockage courant (`GET /api/storages/current`) et créer `/SYSTEM` |
+| `GET /api/system/attributes (firmware) ... FAIL` | Firmware < 1.13.1 | Mettre à jour le player (le scheduler n'est pas pris en charge avant) |
 | PowerShell refuse le script | Politique d'exécution | Utiliser `-ExecutionPolicy Bypass` (déjà fait par le `.bat`) |
 | Erreurs de parsing (`Jeton inattendu « ) »`, `Ã©` dans les messages) | `run-tests.ps1` réenregistré en UTF-8 **sans BOM** ou avec des accents | Le fichier doit rester **ASCII pur + BOM UTF-8** (voir l'en-tête du script) |
 | Accents cassés dans `REPORT.md` (`modÃ¨le`) | `Get-Content` sans `-Encoding UTF8` (PowerShell 5.1 lit en ANSI) | Corrigé depuis la version courante du script |
