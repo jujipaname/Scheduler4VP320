@@ -164,8 +164,10 @@ RESULTAT : PASS - les deux evenements ont ete executes (STOP puis PLAY FOLDER 00
   présente dans le calendrier, firmware ≥ V1.13.1.
 
 ⚠️ Ce test **remplace le planning en place**. L'ancien fichier est récupéré dans
-`scheduler.tm2.backup` (dossier courant) : pour le remettre, renvoyer ce fichier par FTP
-sous le nom `scheduler.tm2`.
+`scheduler.tm2.backup` (dossier courant). Si un backup **différent** existe déjà, la
+nouvelle sauvegarde est horodatée (`scheduler.tm2.backup.AAAAMMJJ-HHMMSS`) : aucune
+sauvegarde précédente n'est écrasée. Pour remettre un planning, renvoyer le `.backup`
+voulu par FTP sous le nom `scheduler.tm2`.
 
 ### Cas C — Depuis l'invite de commandes `cmd`
 

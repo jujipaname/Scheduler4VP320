@@ -264,6 +264,7 @@ async function run() {
   say('');
   say('Deploiement vers ' + REMOTE_DIR + '/' + TARGET + ' (compte FTP : ' + FTP_USER + ') ...');
   let info;
+  let backupName = null;
   try {
     info = await FTP.ftpPut(HOST, FTP_PORT, FTP_USER, FTP_PASS, REMOTE_DIR, TARGET, buf,
                             { backup: DO_BACKUP, mkdir: flag('mkdir'), dirHints: await storageNames(client, T) });
@@ -273,8 +274,22 @@ async function run() {
   }
   say('  envoye ' + buf.length + ' octets dans ' + info.dir + '/');
   if (info.backup) {
-    const name = TARGET + '.backup';
+    // Never overwrite an earlier backup (it may hold the customer's real
+    // schedule): keep a timestamped copy when the content differs.
+    let name = TARGET + '.backup';
+    if (fs.existsSync(name)) {
+      const same = fs.readFileSync(name).equals(info.backup);
+      if (!same) {
+        const d = new Date();
+        const stamp = d.getFullYear() +
+          String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') +
+          '-' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') +
+          String(d.getSeconds()).padStart(2, '0');
+        name = TARGET + '.backup.' + stamp;
+      }
+    }
     fs.writeFileSync(name, info.backup);
+    backupName = name;
     say('  ancien fichier sauvegarde : ' + name + ' (' + info.backup.length + ' octets)');
   } else {
     say('  aucun ' + TARGET + ' existant a sauvegarder');
@@ -353,7 +368,7 @@ async function run() {
     events: events,
     dates: dates,
     uploadedTo: info.dir,
-    backup: info.backup ? TARGET + '.backup' : null,
+    backup: backupName,
     timeline,
     initialState: before,
     sawStop,

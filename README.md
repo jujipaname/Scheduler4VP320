@@ -94,8 +94,10 @@ RESULTAT : PASS - les deux evenements ont ete executes (STOP puis PLAY FOLDER 00
 ou mal placé, horloge du player fausse, date du jour hors calendrier, firmware < V1.13.1.
 
 ⚠️ Le test **remplace** le planning en place : `scheduler.tm2.backup` est écrit dans le
-dossier courant. Pour remettre le planning réel :
-`node deploy.js` ou recopier `scheduler.tm2.backup` en `scheduler.tm2` par FTP.
+dossier courant. Si un backup **différent** existe déjà, le nouveau est horodaté
+(`scheduler.tm2.backup.20261109-121928`) pour ne jamais écraser une sauvegarde
+précédente. Pour remettre le planning réel : renvoyer le bon `.backup` par FTP sous le
+nom `scheduler.tm2`.
 
 ## Statut
 
