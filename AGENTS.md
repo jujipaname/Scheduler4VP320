@@ -241,11 +241,26 @@ Le repo contient **deux pages web statiques** + une config :
 - [x] ✅ **Test d'horloge** `clock-test.js` : génère un planning pour aujourd'hui avec
        `STOP` puis `PLAY FOLDER 000` à +2/+3 min sur l'horloge **du player**, l'uploade et
        observe `/api/system/state/playbackengine` → **preuve que le firmware applique le
-       `scheduler.tm2`**. Validé de bout en bout contre un player simulé (arrêt puis reprise
-       observés) ; reste à exécuter sur le VP320 réel.
+       `scheduler.tm2`**.
+       → **Validé sur le VP320 réel (09/11/2026, 14:16)** : upload de 78726 octets dans
+         `/Internal shared storage/SYSTEM/scheduler.tm2`, puis `state=stopped` à la minute
+         prévue et `state=playing folder=0` à la minute suivante (chronologie du rapport).
+         **Le firmware interprète bien le fichier** : `tm2.js` + le calendrier produit sont
+         acceptés tels quels par v1.13.1.
+       → **Deux faits d'exécution découverts** :
+         1. un événement « HH:MM » est déclenché **à HH:MM:00** (changement de minute), sans
+            les secondes de l'heure de programmation ;
+         2. l'horloge du player et celle du PC de test peuvent être **décalées de plusieurs
+            minutes** (11 min observées) → tout le kit raisonne en **heure du player**
+            (`/api/system/state/datetime`) et affiche le décalage.
+       → Un état `maintenance` bref après l'upload est normal (le player relit son stockage).
 - [ ] ⬜ Tests sur matériel réel des commandes restantes (veille, CEC, PJLINK).
 - [ ] ⬜ Synchronisation horloge player (**NTP**) documentée/vérifiée.
-- [ ] ⬜ Vérification firmware ≥ **V1.13.1**.
+       → Le VP320 de test est à **+11 min** par rapport au PC : à corriger (NTP) avant de
+         juger un planning « déclenché en retard », l'écart étant supérieur à la minute.
+- [x] ✅ Vérification firmware ≥ **V1.13.1** : `GET /api/system/attributes` →
+       **v1.13.1 (2022-09-01)** sur le VP320 de test ; le kit est en **FAIL** explicite
+       si la version lue est antérieure (`validate-player.js`, test « firmware »).
 - [x] ✅ Revue des pages `index.html` / `remote.html` et du `web-config.json` : onglets
        Télécommande (REST Digest) et Moteur ajoutés, endpoints alignés sur l'API officielle.
 - [x] ✅ Corrections de finition : Digest `uri` = chemin de requête (RFC 2617, testé),

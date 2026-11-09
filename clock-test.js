@@ -29,6 +29,8 @@
  *   --watch=N            seconds of observation after upload
  *                        (default (--in + 2) minutes + 30 s, 0 = no watch)
  *   --no-backup          do not save the previous /SYSTEM/scheduler.tm2
+ *   --restore            re-upload the backup afterwards (undo the test)
+ *   --restore=FILE       same, with an explicit local .tm2 to put back
  *
  * Exit code: 0 = firmware applied the events, 1 = not observed / error.
  */
@@ -110,6 +112,9 @@ const FILE = arg('file', 'scheduler-clocktest.tm2');
 const LEAD = Math.max(2, Number(arg('in', 3)));
 const DO_UPLOAD = flag('upload');
 const DO_BACKUP = !flag('no-backup');
+// --restore : put the previous schedule back after the test (bare flag = the
+// backup just taken; --restore=file to pick another one).
+const RESTORE = SWITCHES.has('restore') ? true : (OPTIONS['restore'] || false);
 const WATCH = Number(arg('watch', DO_UPLOAD ? (LEAD + 2) * 60 + 30 : 0));
 const BASE = 'http://' + HOST + (HTTP_PORT === 80 ? '' : ':' + HTTP_PORT);
 const TARGET = 'scheduler.tm2';
@@ -148,6 +153,23 @@ function isoDate(p) {
 
 function hhmm(p) {
   return String(p.h).padStart(2, '0') + ':' + String(p.mi).padStart(2, '0');
+}
+
+// Wall-clock helpers. Everything the schedule and the verdict rely on is the
+// PLAYER's wall clock: the PC may be several minutes off, and a naive
+// Date.now() comparison then misses the events entirely.
+function localWallMs() {
+  const d = new Date();
+  return d.getTime() - d.getTimezoneOffset() * 60000;
+}
+
+function wallMs(p) { return Date.UTC(p.y, p.mo - 1, p.d, p.h, p.mi, p.s); }
+
+function hhmmss(ms) {
+  const d = new Date(ms);
+  return String(d.getUTCHours()).padStart(2, '0') + ':' +
+         String(d.getUTCMinutes()).padStart(2, '0') + ':' +
+         String(d.getUTCSeconds()).padStart(2, '0');
 }
 
 function dateStamp(p) {
@@ -244,6 +266,17 @@ async function run() {
   }
   say('Horloge du player : ' + now.raw);
 
+  // Constant offset: player wall clock minus PC wall clock.
+  const OFFSET = wallMs(now) - localWallMs();
+  const playerWall = () => localWallMs() + OFFSET;
+  const drift = Math.round(OFFSET / 1000);
+  say('Heure du PC       : ' + hhmmss(localWallMs()) + '  (decalage PC/player : ' +
+      (drift >= 0 ? '+' : '') + drift + ' s)');
+  if (Math.abs(drift) > 30) {
+    say('  => le PC et le player ne sont pas a la meme heure. Les evenements sont');
+    say('     programmes sur l\'horloge DU PLAYER ; la chronologie ci-dessous aussi.');
+  }
+
   // Firmware gate: below 1.13.1 the player ignores scheduler.tm2 entirely.
   let firmwareOk = null;
   try {
@@ -303,8 +336,8 @@ async function run() {
   if (!DO_UPLOAD) {
     say('');
     say('Fichier pret. Pour le deployer puis observer :');
-    say('  node clock-test.js --host=' + HOST + ' --user=' + USER + ' --pass=*** ' +
-        '--ftp-user=' + FTP_USER + ' --ftp-pass=*** --upload');
+    say('  node clock-test.js --host=' + HOST + ' --user=' + USER + ' --pass=' + PASS +
+        ' --ftp-user=' + FTP_USER + ' --ftp-pass=' + FTP_PASS + ' --upload');
     process.exit(0);
   }
 
@@ -344,51 +377,92 @@ async function run() {
     say('  aucun ' + TARGET + ' existant a sauvegarder');
   }
 
+  // Put the player's own schedule back (bare --restore = the backup we just
+  // took, --restore=FILE = a file we choose). Used both when the observation is
+  // skipped and at the end of a full run.
+  async function restoreStep() {
+    if (!DO_BACKUP || !backupName) return;
+    say('');
+    if (!RESTORE) {
+      say('Le planning du player a ete remplace par le test. Pour le remettre :');
+      say('  node clock-test.js --host=' + HOST + ' --user=' + USER + ' --pass=' + PASS +
+          ' --ftp-user=' + FTP_USER + ' --ftp-pass=' + FTP_PASS + ' --restore');
+      say('  (ou copier ' + backupName + ' vers ' + (info.dir || REMOTE_DIR) + '/' + TARGET + ' par FTP)');
+      return;
+    }
+    const src = RESTORE === true ? backupName : RESTORE;
+    say('Restauration du planning depuis ' + src + ' ...');
+    let data;
+    try { data = fs.readFileSync(src); }
+    catch (e) { say('[ERREUR] impossible de lire ' + src + ' : ' + e.message); return; }
+    try {
+      const back = await FTP.ftpPut(HOST, FTP_PORT, FTP_USER, FTP_PASS, info.dir, TARGET, data,
+                                     { backup: false, mkdir: false, dirHints: await storageNames(client, T) });
+      say('  ' + data.length + ' octets reinjectes dans ' + (back.dir || info.dir) + '/' + TARGET);
+      say('  le player a retrouve ce planning.');
+    } catch (e) {
+      say('[ERREUR] restauration : ' + e.message);
+    }
+  }
+
   if (!WATCH) {
     say('');
     say('Pas d\'observation demandee (--watch=0).');
+    await restoreStep();
     process.exit(0);
   }
 
   say('');
   say('Observation pendant ' + WATCH + ' s (etat de lecture toutes les 2 s) ...');
-  say('  T0 = ' + now.raw);
+  say('  T0 (player) = ' + now.raw);
   const timeline = [];
   const started = Date.now();
   let prevKey = '';
   let before = null;
-  const stopFrom = Date.now() + (LEAD * 60000) - 15000;
-  const playFrom = Date.now() + ((LEAD + 1) * 60000) - 15000;
-
-  let sawStop = false;
-  let sawPlayFolder0 = false;
+  // The firmware fires on the MINUTE CHANGE: an event "13:54" is executed at
+  // 13:54:00, not at 13:54:47 (the seconds of T0 are irrelevant). Expect the
+  // top of the minute, and accept up to 2 min late in case of a slow reload.
+  const stopAt = Math.floor(wallMs(tStop) / 60000) * 60000;
+  const playAt = Math.floor(wallMs(tPlay) / 60000) * 60000;
+  const window = [stopAt - 25000, stopAt + 120000];
+  const windowPlay = [playAt - 25000, playAt + 120000];
 
   while (Date.now() - started < WATCH * 1000) {
     const pb = await readPlayback(client, T);
     const key = pb.state + '|' + pb.folder;
     if (!before) before = pb;
     const changed = key !== prevKey;
+    const wall = playerWall();
     if (changed) {
-      const at = new Date().toTimeString().slice(0, 8);
-      timeline.push({ at, state: pb.state, folder: pb.folder, file: pb.file });
+      const at = hhmmss(wall);
+      timeline.push({ at, ms: wall, state: pb.state, folder: pb.folder, file: pb.file });
       say('  ' + at + '  state=' + (pb.state || '?') +
           (pb.folder !== null ? '  folder=' + pb.folder : '') +
           (pb.file ? '  file=' + pb.file : ''));
       prevKey = key;
     }
-    const at = Date.now();
-    if (changed && pb.state === 'stopped' && at >= stopFrom - 5000) sawStop = true;
-    if (changed && pb.state === 'playing' && pb.folder === 0 && at >= playFrom - 5000) sawPlayFolder0 = true;
     await sleep(2000);
   }
 
+  // Judge afterwards, from the recorded transitions: easier to read and to trust.
+  const inWin = (t, w) => t.ms >= w[0] && t.ms <= w[1];
+  const stopHit = timeline.filter(t => t.state === 'stopped' && inWin(t, window))[0];
+  const playHit = timeline.filter(t => t.state === 'playing' && t.folder === 0 && inWin(t, windowPlay))[0];
+  const sawStop = !!stopHit;
+  const sawPlayFolder0 = !!playHit;
+
   const wasPlayingFolder0 = !!(before && before.state === 'playing' && before.folder === 0);
+  const driftWasLarge = Math.abs(drift) > 30;
   const pass = sawStop || sawPlayFolder0;
 
   say('');
   say('Etat initial : ' + (before ? before.state + (before.folder !== null ? ' folder=' + before.folder : '') : '?'));
-  say('Arret observe (state=stopped)        : ' + (sawStop ? 'OUI' : 'non'));
-  say('Lecture dossier 000 observee         : ' + (sawPlayFolder0 ? 'OUI' : 'non'));
+  say('Arret observe (state=stopped)        : ' +
+      (sawStop ? 'OUI a ' + stopHit.at + ' (prevu a la minute ' + hhmmss(stopAt) + ')'
+               : 'non (fenetre ' + hhmmss(window[0]) + ' - ' + hhmmss(window[1]) + ')'));
+  say('Lecture dossier 000 observee         : ' +
+      (sawPlayFolder0 ? 'OUI a ' + playHit.at + ' (prevu a la minute ' + hhmmss(playAt) + ')'
+                      : 'non (fenetre ' + hhmmss(windowPlay[0]) + ' - ' + hhmmss(windowPlay[1]) + ')'));
   say('');
   if (sawStop && sawPlayFolder0) {
     say('RESULTAT : PASS - les deux evenements ont ete executes (STOP puis PLAY FOLDER 000).');
@@ -407,11 +481,18 @@ async function run() {
     say('  dans le calendrier, et firmware >= V1.13.1.');
     if (firmwareOk === false) say('  >> Le firmware lu est anterieur a V1.13.1 : c\'est la cause probable.');
     say('  Si l\'horloge du player est fausse, le planning ne se declenchera jamais.');
+    if (driftWasLarge) {
+      say('  A note : le PC est decale de ' + drift + ' s par rapport au player.');
+      say('  Les evenements se declenchent sur l\'heure DU player (voir T0 ci-dessus).');
+    }
+    say('  Un etat « maintenance » juste apres l\'upload est normal : le player relit son stockage.');
   }
 
   fs.writeFileSync('clock-test.json', JSON.stringify({
     host: HOST,
     playerNow: now.raw,
+    pcNow: hhmmss(localWallMs()),
+    driftSeconds: drift,
     firmwareOk: firmwareOk,
     file: FILE,
     events: events,
@@ -420,10 +501,15 @@ async function run() {
     backup: backupName,
     timeline,
     initialState: before,
+    expected: { wake: tWake ? hhmmss(wallMs(tWake)) : null, stop: hhmmss(stopAt), play: hhmmss(playAt) },
+    stopObserved: stopHit ? stopHit.at : null,
+    playObserved: playHit ? playHit.at : null,
     sawStop,
     sawPlayFolder0,
     pass
   }, null, 2));
+
+  await restoreStep();
 
   process.exit(pass ? 0 : 1);
 }
@@ -438,9 +524,13 @@ async function storageNames(client, T) {
   }
 }
 
+// The observation window is LEAD minutes of waiting plus WATCH seconds: a fixed
+// 300s watchdog used to kill a perfectly good run before its verdict.
+const HARD_LIMIT_MS = (LEAD * 60000) + WATCH * 1000 + 120000;
 setTimeout(() => {
-  console.error('Garde-temps global (300s) - arret force');
+  console.error('Garde-temps global (' + Math.round(HARD_LIMIT_MS / 1000) +
+                's) - arret force');
   process.exit(1);
-}, 300000);
+}, HARD_LIMIT_MS);
 
 run().catch(e => { console.error('Erreur fatale:', e.message); process.exit(1); });

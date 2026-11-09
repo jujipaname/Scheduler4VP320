@@ -138,12 +138,19 @@ Avant d'écrire, le script **télécharge l'ancien `/SYSTEM/scheduler.tm2`** dan
 Les cas A/B valident le format, l'authentification et le dépôt du fichier. Ils ne disent
 pas si le **firmware applique** le planning. `clock-test.js` répond à cette question :
 
-1. il lit l'horloge **du player** (`GET /api/system/state/datetime`) ;
+1. il lit l'horloge **du player** (`GET /api/system/state/datetime`) et calcule le
+   **décalage avec l'horloge du PC** (affiché : « décalage PC/player : +660 s ») ;
 2. il génère un `scheduler.tm2` pour **aujourd'hui** avec deux événements observables
-   sur le même jour type : `STOP` à `--in` minutes et `PLAY FOLDER 000` à `--in+1` ;
+   sur le même jour type : `STOP` à `in` minutes et `PLAY FOLDER 000` à `in+1`
+   (et `WAKE UP` une minute avant si `in > 2`) ;
 3. il l'uploade avec sauvegarde de l'ancien fichier ;
 4. il interroge `GET /api/system/state/playbackengine` toutes les 2 s et affiche les
-   changements d'état.
+   changements d'état **en heure du player**.
+
+> ⏱️ Le firmware déclenche **au changement de minute** : un événement « 14:19 » est exécuté
+> à **14:19:00**, pas à 14:19:47. La fenêtre de détection est donc calée sur le début de
+> minute, et les heures affichées dans la chronologie sont celles **du player** — si ton PC
+> est décalé, les heures de ta montre ne correspondront pas à celles du terminal, c'est normal.
 
 Dans le dossier du projet, le plus simple (le `.bat` se place dans son propre dossier) :
 
@@ -169,14 +176,18 @@ player) : utile pour inspecter le planning produit.
 Durée d'observation : `--watch` (par défaut `--in + 2` minutes + 30 s). Résultat attendu :
 
 ```
-Observation pendant 270 s (etat de lecture toutes les 2 s) ...
-  21:14:01  state=playing  folder=0
-  21:16:02  state=stopped
-  21:17:02  state=playing  folder=0
-Arret observe (state=stopped)        : OUI
-Lecture dossier 000 observee         : OUI
+Observation pendant 330 s (etat de lecture toutes les 2 s) ...
+  T0 (player) = 2026-11-09T14:16:43.904+01:00
+  14:16:47  state=playing  folder=0  file=22_BAK-BERTILLE...
+  14:19:05  state=stopped
+  14:20:04  state=playing  folder=0  file=22_BAK-BERTILLE...
+Arret observe (state=stopped)        : OUI a 14:19:05 (prevu a la minute 14:19:00)
+Lecture dossier 000 observee         : OUI a 14:20:04 (prevu a la minute 14:20:00)
 RESULTAT : PASS - les deux evenements ont ete executes (STOP puis PLAY FOLDER 000).
 ```
+
+Un état `maintenance` qui clignote juste après l'upload est normal : le player relit son
+stockage, il vient de voir un nouveau fichier par FTP.
 
 - **PASS** ⇒ le firmware interprète bien `/SYSTEM/scheduler.tm2`, le format de l'éditeur
   est correct de bout en bout.
@@ -187,8 +198,17 @@ RESULTAT : PASS - les deux evenements ont ete executes (STOP puis PLAY FOLDER 00
 ⚠️ Ce test **remplace le planning en place**. L'ancien fichier est récupéré dans
 `scheduler.tm2.backup` (dossier courant). Si un backup **différent** existe déjà, la
 nouvelle sauvegarde est horodatée (`scheduler.tm2.backup.AAAAMMJJ-HHMMSS`) : aucune
-sauvegarde précédente n'est écrasée. Pour remettre un planning, renvoyer le `.backup`
-voulu par FTP sous le nom `scheduler.tm2`.
+sauvegarde précédente n'est écrasée.
+
+**Remise en place automatique** : ajouter `Restore` à la commande pour que le script
+recharge lui-même l'ancien fichier à la fin (sans observation, ça fait un
+« aller-retour » de vérification du chemin FTP) :
+
+```bat
+clock-test.bat -Host 192.168.1.100 -User admin -Pass "MotDePasseWeb" -FtpUser idalftp -FtpPass "MotDePasseFtp" -Upload -Restore
+```
+
+ou préciser le fichier à remettre : `--restore=scheduler.tm2.backup.20261109-140548`.
 
 ### Cas C — Depuis l'invite de commandes `cmd`
 
@@ -209,7 +229,7 @@ run-tests.bat -Host 192.168.1.100 -User admin -Pass mdp
 | `player-state.json` | État complet renvoyé par le player (`/api/system/attributes`, `/api/system/state`, `/api/storages`, dossiers médias, bannière FTP) : firmware, NTP, stockages montés |
 | `scheduler.tm2.backup` | Sauvegarde de l'ancien `/SYSTEM/scheduler.tm2` récupérée avant l'upload (`-Upload`, ou `clock-test.js --upload`) |
 | `scheduler-clocktest.tm2` | Planning de test généré par `clock-test.js` (utilisable avec `-Tm2`) |
-| `clock-test.json` | Résultat détaillé du test d'horloge : horloge du player, événements, chronologie des états, verdict |
+| `clock-test.json` | Résultat détaillé du test d'horloge : horloge du player, **décalage PC/player**, heures prévues/observées, chronologie des états, verdict (jamais les mots de passe) |
 
 Le terminal affiche aussi les résultats en direct (`PASS` / `FAIL`).
 

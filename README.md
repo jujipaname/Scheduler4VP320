@@ -91,13 +91,23 @@ ou directement avec Node (les deux syntaxes sont acceptées, casse et tirets ign
 node clock-test.js --host=192.168.8.20 --user=admin --pass=<mdp> --ftp-user=idalftp --ftp-pass=<mdp ftp> --in=2 --upload
 ```
 
-Sortie attendue (`--watch` par défaut = `--in+2` minutes + 30 s) :
+Sortie attendue (chronologie en **heure du player**, `--watch` par défaut ≈ `in+2` min) :
 
 ```
-  12:09:02  state=stopped
-  12:10:02  state=playing  folder=0
+Horloge du player : 2026-11-09T14:16:43.904+01:00
+Heure du PC       : 14:05:48  (decalage PC/player : +660 s)
+  14:19:05  state=stopped
+  14:20:04  state=playing  folder=0
+Arret observe (state=stopped)        : OUI a 14:19:05 (prevu a la minute 14:19:00)
 RESULTAT : PASS - les deux evenements ont ete executes (STOP puis PLAY FOLDER 000).
 ```
+
+Le firmware déclenche **à la première seconde de la minute** : un événement « 14:19 »
+s'exécute à 14:19:00. C'est cette heure-là qui est surveillée, sur l'horloge du player
+(le décalage avec le PC est affiché, il n'a aucune influence sur le test).
+
+Ajoute `--restore` (ou `-Restore`) pour que le script remette automatiquement l'ancien
+planning du player à la fin.
 
 `PASS` prouve que le firmware interprète le fichier. `FAIL` oriente vers : fichier absent
 ou mal placé, horloge du player fausse, date du jour hors calendrier, firmware < V1.13.1.
