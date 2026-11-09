@@ -99,6 +99,7 @@ run-tests.bat -Host 192.168.1.100 -User admin -Pass mdp
 | **`REPORT.json`** | Idem, au format JSON (lisible par machine) |
 | `report.json` | Détail de la suite hors-ligne |
 | `report-live.json` | Détail de la validation live |
+| `player-state.json` | État complet renvoyé par le player (`/api/system/state` + `/api/storages`) : version firmware, NTP, stockages montés |
 
 Le terminal affiche aussi les résultats en direct (`PASS` / `FAIL`).
 
@@ -111,14 +112,16 @@ pour juger de l'état du code.
 
 Un **résultat attendu** est :
 
-- **Hors-ligne :** tous les tests **PASS** (12/12). Cela valide que le format TM2,
+- **Hors-ligne :** tous les tests **PASS** (13/13). Cela valide que le format TM2,
   le moteur et l'auth Digest sont corrects et reproductibles.
 - **Live :**
   - `Serveur web joignable` → **PASS** (le player répond).
   - `Auth Digest /api/auth/login` → **PASS** (HTTP 200) ⇒ les identifiants et
     l'authentification Digest fonctionnent.
   - `GET /api/system/state` → **PASS** (HTTP 200) ⇒ l'API officielle est bien
-    interprétée.
+    interprétée. Le détail indique la **version firmware** détectée.
+  - `GET /api/storages` → **PASS** (HTTP 200) ⇒ le player liste ses stockages
+    (utile pour confirmer la présence de la clé USB et du dossier `/SYSTEM/`).
   - `FTP upload /SYSTEM/scheduler.tm2` (si `-Upload`) → **PASS** ⇒ le fichier est
     bien déposé et relu par le player.
 
@@ -133,6 +136,8 @@ Un **résultat attendu** est :
 | `Serveur web joignable ... FAIL` | IP incorrecte ou player éteint | Vérifier `ping <ip>` depuis la machine |
 | `FTP upload ... FAIL` | Serveur FTP désactivé ou port non standard | Activer le FTP sur le player, renseigner `-FtpPort` |
 | PowerShell refuse le script | Politique d'exécution | Utiliser `-ExecutionPolicy Bypass` (déjà fait par le `.bat`) |
+| Erreurs de parsing (`Jeton inattendu « ) »`, `Ã©` dans les messages) | `run-tests.ps1` réenregistré en UTF-8 **sans BOM** ou avec des accents | Le fichier doit rester **ASCII pur + BOM UTF-8** (voir l'en-tête du script) |
+| Accents cassés dans `REPORT.md` (`modÃ¨le`) | `Get-Content` sans `-Encoding UTF8` (PowerShell 5.1 lit en ANSI) | Corrigé depuis la version courante du script |
 
 ---
 

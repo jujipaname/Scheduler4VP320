@@ -7,14 +7,17 @@
  *   1. HTTP reachability of the embedded web server.
  *   2. Digest auth (RFC 2617) against the official REST API (api.js):
  *        - POST /api/auth/login
- *        - GET  /api/system/state        (informational)
- *        - GET  /api/storages            (informational)
+ *        - GET  /api/system/state        (informational + firmware version)
+ *        - GET  /api/storages            (informational: mounted storages)
  *   3. Optional FTP: connect to the player's FTP server, ensure /SYSTEM,
  *      upload the generated scheduler.tm2 (roundtripped through tm2.js).
+ *   4. Always writes a full JSON snapshot of state + storages
+ *      (player-state.json) so firmware/NTP/storages can be inspected offline.
  *
  * Usage:
  *   node validate-player.js --host=192.168.1.100 [--user=admin] [--pass=admin]
  *                            [--ftp-port=21] [--upload] [--out=report-live.json]
+ *                            [--snapshot=player-state.json]
  *
  * Exit code: 0 = all checks OK, 1 = at least one failure.
  */
@@ -59,6 +62,33 @@ const BASE = 'http://' + HOST + (HTTP_PORT === 80 ? '' : ':' + HTTP_PORT);
 
 const results = [];
 function add(name, pass, detail) { results.push({ name, pass, detail: detail || '' }); console.log(`  [${pass ? 'PASS' : 'FAIL'}] ${name}  ${detail || ''}`); }
+
+// Full JSON bodies kept aside so the firmware version / NTP / storages can be
+// inspected offline (the report only shows a truncated detail line).
+const snapshot = { host: HOST, generatedAt: new Date().toISOString(), state: null, storages: null };
+
+// Best-effort extraction of firmware version fields, schema may vary.
+function findVersion(obj, depth) {
+  if (!obj || typeof obj !== 'object' || (depth || 0) > 4) return '';
+  for (const k of Object.keys(obj)) {
+    if (/^(firmware|fw|software|sw|version|app|build)/i.test(k)) {
+      const v = obj[k];
+      if (typeof v === 'string') return v;
+      if (typeof v === 'number') return String(v);
+      if (v && typeof v === 'object') {
+        const inner = findVersion(v, (depth || 0) + 1);
+        if (inner) return inner;
+      }
+    }
+  }
+  for (const k of Object.keys(obj)) {
+    if (obj[k] && typeof obj[k] === 'object') {
+      const inner = findVersion(obj[k], (depth || 0) + 1);
+      if (inner) return inner;
+    }
+  }
+  return '';
+}
 
 // ---- minimal FTP client (control + passive data) -------------------------
 function withTimeout(promise, ms, what) {
@@ -149,9 +179,32 @@ async function run() {
   try {
     const s = await withTimeout(client.request('/api/system/state', 'GET'), T, 'system/state');
     let detail = 'HTTP ' + s.status;
-    try { detail += ' — ' + JSON.stringify(await s.json()).slice(0, 120); } catch (_) {}
+    let body = null;
+    try { body = await s.json(); } catch (_) {}
+    if (body) {
+      snapshot.state = body;
+      detail += ' - ' + JSON.stringify(body).slice(0, 120);
+      const fw = findVersion(body);
+      if (fw) detail += ' | firmware: ' + fw;
+    }
     add('GET /api/system/state', s.status === 200, detail);
   } catch (e) { add('GET /api/system/state', false, 'exception: ' + e.message); }
+
+  // 4. storages (informational): confirms what is mounted (USB / SD / SYSTEM)
+  try {
+    const st = await withTimeout(client.request('/api/storages', 'GET'), T, 'storages');
+    let body = null;
+    try { body = await st.json(); } catch (_) {}
+    if (body) snapshot.storages = body;
+    let names = '';
+    const list = body && (Array.isArray(body) ? body : (body.data || body.storages));
+    if (Array.isArray(list)) {
+      names = list.map(function (x) {
+        return (x && (x.name || x.label || x.path || x.type)) || '?';
+      }).join(', ');
+    }
+    add('GET /api/storages', st.status === 200, 'HTTP ' + st.status + (names ? ' - ' + names : ''));
+  } catch (e) { add('GET /api/storages', false, 'exception: ' + e.message); }
 
   // 4. FTP upload (optional)
   if (DO_UPLOAD) {
@@ -165,6 +218,15 @@ async function run() {
     }
   } else {
     add('FTP upload /SYSTEM/scheduler.tm2', true, 'ignoré (ajouter --upload)');
+  }
+
+  // 5. full snapshot, for offline inspection (firmware, NTP, storages)
+  const snapshotPath = arg('snapshot', 'player-state.json');
+  try {
+    fs.writeFileSync(snapshotPath, JSON.stringify(snapshot, null, 2));
+    console.log('  (snapshot complet : ' + snapshotPath + ')');
+  } catch (e) {
+    console.error('  (snapshot non ecrit : ' + e.message + ')');
   }
 
   const passed = results.filter(r => r.pass).length;

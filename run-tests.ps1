@@ -5,7 +5,7 @@
 #   - live validation (validate-player.js): REST Digest + FTP to the player.
 #
 # Usage (PowerShell):
-#   .\run-tests.ps1 -Host 192.168.1.100 -User admin -Pass yourPassword [-Upload] [-FtpPort 21]
+#   .\run-tests.ps1 -Host 192.168.1.100 -User admin -Pass yourPassword [-Upload] [-HttpPort 80] [-FtpPort 21]
 #
 # Without -Host: only the offline part is executed.
 #
@@ -25,6 +25,7 @@ param(
     [string]$User = "admin",
     [string]$Pass = "",
     [switch]$Upload,
+    [int]$HttpPort = 80,
     [int]$FtpPort = 21
 )
 
@@ -94,7 +95,7 @@ $offExit = $LASTEXITCODE
 $offline = $null
 if (Test-Path $offlineJson) {
     try {
-        $offline = Get-Content $offlineJson -Raw | ConvertFrom-Json
+        $offline = Get-Content $offlineJson -Raw -Encoding UTF8 | ConvertFrom-Json
     } catch {
         Write-Host "[ERREUR] report.json illisible : $($_.Exception.Message)" -ForegroundColor Red
         $offline = $null
@@ -115,6 +116,7 @@ if ($PlayerHost) {
         "--host=$PlayerHost",
         "--user=$User",
         "--pass=$Pass",
+        "--http-port=$HttpPort",
         "--ftp-port=$FtpPort",
         "--out=report-live.json"
     )
@@ -125,7 +127,7 @@ if ($PlayerHost) {
 
     if (Test-Path $liveJson) {
         try {
-            $live = Get-Content $liveJson -Raw | ConvertFrom-Json
+            $live = Get-Content $liveJson -Raw -Encoding UTF8 | ConvertFrom-Json
         } catch {
             Write-Host "[ERREUR] report-live.json illisible : $($_.Exception.Message)" -ForegroundColor Red
             $live = $null
@@ -185,6 +187,10 @@ if ($live) {
     [void]$sb.AppendLine("")
     [void]$sb.AppendLine("**Synthese :** $($live.passed) succes, $($live.failed) echec(s) sur $($live.total).")
     [void]$sb.AppendLine("")
+    if (Test-Path (Join-Path $here "player-state.json")) {
+        [void]$sb.AppendLine("Snapshot complet de l'etat du player (firmware, NTP, stockages) : ``player-state.json``.")
+        [void]$sb.AppendLine("")
+    }
 } else {
     [void]$sb.AppendLine("## 2. Validation live : NON EXECUTEE")
     [void]$sb.AppendLine("")
@@ -239,6 +245,9 @@ if ($live -and $live.failed -gt 0) {
 Write-Host ""
 Write-Host "Compte rendu ecrit : REPORT.md et REPORT.json"
 Write-Host "Transmettez REPORT.md (ou REPORT.json) pour analyse."
+if (Test-Path (Join-Path $here "player-state.json")) {
+    Write-Host "Transmettez aussi player-state.json (etat complet du player)."
+}
 Write-Host ""
 
 # --- global exit code ----------------------------------------------------
