@@ -36,6 +36,7 @@ VP320 / VP330
 | `test-runner.js` | Suite hors-ligne (roundtrip TM2, moteur, MD5/Digest) |
 | `validate-player.js` | Validation **live** : auth Digest, **version firmware** (`/api/system/attributes`), stockages, upload FTP avec **sauvegarde de l'ancien fichier** **(requis : player joignable)** |
 | `clock-test.bat` | Lanceur Windows du test d'horloge (se place dans le dossier du projet, `pause` à la fin) |
+| `logger-test.bat` | Lanceur Windows de la sonde Logger (identique en esprit) |
 | `clock-test.js` | **Test d'horloge** : programme STOP puis `PLAY FOLDER 000` à +2/+3 min sur l'horloge **du player**, uploade et observe `/api/system/state/playbackengine` → prouve que le firmware exécute le planning |
 | `logger-test.js` | **Sonde REST Logger** (`/api/logs`) : détermine si le player permet de **lire et écrire** des fichiers par REST → décide si l'éditeur web peut déployer sans FTP |
 | `run-tests.bat` / `run-tests.ps1` | Orchestrateur Windows — cf. `procedureTest.md`. Live : `run-tests.bat -Host <ip> -User admin -Pass <mdp> [-Upload -FtpUser <u> -FtpPass <p> -Tm2 fichier.tm2]` |
@@ -78,8 +79,13 @@ Deux questions décident si l'éditeur web peut **lire le planning du player** e
 éventuellement **le déployer sans FTP** : les identifiants acceptent-ils des chemins
 (`SYSTEM/scheduler.tm2`), et l'append préserve-t-il les octets binaires (`≥ 0x80`) ?
 
-`logger-test.js` répond à ces questions en lecture seule sur le player :
-`node logger-test.js -Host 192.168.8.20 -User admin -Pass <mdp>`
+`logger-test.bat` répond à ces questions en lecture seule sur le player :
+
+```bat
+logger-test.bat -Host 192.168.8.20 -User admin -Pass <mdp>
+```
+
+(équivalent à `node logger-test.js …`, avec vérification Node/fichiers et `pause` finale).
 
 - `remote.html` onglet **Fichier** contient déjà : « ⬇ Charger depuis le player »
   (lecture + parse du `.tm2` du player), « ⬆ Déployer vers le player » (écriture REST

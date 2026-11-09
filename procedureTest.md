@@ -44,6 +44,7 @@ test-runner.js     (suite hors-ligne)
 validate-player.js (validation live)
 clock-test.js      (test d'horloge : le firmware applique-t-il le planning ?)
 clock-test.bat     (lanceur Windows du test d'horloge)
+logger-test.bat    (lanceur Windows de la sonde Logger)
 run-tests.ps1      (orchestrateur Windows)
 run-tests.bat      (lanceur double-clic)
 scheduler1.tm2     (fichiers de référence)
@@ -220,6 +221,20 @@ node clock-test.js -Host 192.168.1.100 -User admin -Pass "MotDePasseWeb" -FtpUse
 Sans `-Upload`, `-Restore <fichier>` se contente de redéposer ce fichier dans
 `/SYSTEM/scheduler.tm2` et s'arrête : c'est le geste à faire après un test pour rendre au
 player son vrai planning.
+
+### Sonde REST Logger (lecture securisee des fichiers)
+
+Avant la premiere edition web « a distance » ? Pas besoin : l'editeur verifie lui-meme.
+Pour obtenir la reponse brute du player en une commande (lecture/suppression ouvertes,
+octets binaires), et pour `logger-test.json` :
+
+```bat
+logger-test.bat -Host 192.168.8.20 -User admin -Pass "MotDePasseWeb"
+```
+
+Aucune modification du player, hormis son fichier sonde cree puis supprime.
+Transmettre la sortie (le Resume surtout) : elle decide si l'onglet Fichier de
+`remote.html` peut charger ET deployer le planning en REST, ou si le FTP reste requis.
 
 ### Cas C — Depuis l'invite de commandes `cmd`
 
