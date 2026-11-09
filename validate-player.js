@@ -28,8 +28,24 @@ const TM2 = require('./tm2.js');
 const API = require('./api.js');
 
 function arg(key, def) {
-  const a = process.argv.find(s => s.startsWith('--' + key + '='));
-  return a ? a.split('=')[1] : def;
+  const p = '--' + key + '=';
+  const a = process.argv.find(s => s.startsWith(p));
+  // slice (not split) so values may contain '=' (e.g. passwords)
+  return a ? a.slice(p.length) : def;
+}
+
+// Node.js 18+ is required: native fetch, AbortSignal.timeout (17.3+).
+if (typeof fetch !== 'function' || typeof AbortSignal === 'undefined' ||
+    typeof AbortSignal.timeout !== 'function') {
+  const msg = 'Node.js ' + process.version + ' trop ancien : Node.js 18+ requis (fetch natif).';
+  console.error('  [FAIL] Environnement Node.js  ' + msg);
+  const out = arg('out', 'report-live.json');
+  fs.writeFileSync(out, JSON.stringify({
+    suite: 'live', host: arg('host', ''), generatedAt: new Date().toISOString(),
+    total: 1, passed: 0, failed: 1,
+    results: [{ name: 'Environnement Node.js', pass: false, detail: msg }]
+  }, null, 2));
+  process.exit(1);
 }
 
 const HOST = arg('host', '192.168.1.100');

@@ -1,18 +1,24 @@
-# run-tests.ps1 — Exécute les tests Scheduler4VP320 et produit un compte rendu.
+﻿# run-tests.ps1 - Run the Scheduler4VP320 test suite and build a consolidated report.
 #
-# Sur une machine réelle reliée au player (Windows 10, Node.js installé) :
-#   - Test hors-ligne (test-runner.js) : roundtrip TM2, moteur, MD5/Digest.
-#   - Validation live (validate-player.js) : REST Digest + FTP vers le player.
+# On a machine connected to the player (Windows 10, Node.js installed):
+#   - offline suite  (test-runner.js)   : TM2 roundtrip, engine, MD5/Digest.
+#   - live validation (validate-player.js): REST Digest + FTP to the player.
 #
-# Usage (PowerShell) :
-#   .\run-tests.ps1 -Host 192.168.1.100 -User admin -Pass votreMdp [-Upload] [-FtpPort 21]
+# Usage (PowerShell):
+#   .\run-tests.ps1 -Host 192.168.1.100 -User admin -Pass yourPassword [-Upload] [-FtpPort 21]
 #
-# Sans -Host : seule la partie hors-ligne est exécutée.
+# Without -Host: only the offline part is executed.
 #
-# Sorties :
-#   REPORT.md / REPORT.json  : compte rendu consolidé (à transmettre)
-#   report.json              : détail hors-ligne
-#   report-live.json         : détail live
+# Outputs:
+#   REPORT.md / REPORT.json  : consolidated report (to be sent back)
+#   report.json              : offline details
+#   report-live.json         : live details
+#
+# ENCODING - IMPORTANT:
+#   This file is deliberately pure ASCII and starts with a UTF-8 BOM.
+#   Windows PowerShell 5.1 reads a BOM-less file as ANSI (cp1252), so UTF-8
+#   bytes (accents, em dash) corrupt string literals and break the parser.
+#   Do not add non-ASCII characters here.
 
 param(
     [Alias("Host")][string]$PlayerHost = "",
@@ -26,48 +32,85 @@ $ErrorActionPreference = "Continue"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $here
 
-$stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-$report = [ordered]@{
-    generatedAt = $stamp
-    machine      = [string](Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Caption)
-    node         = ""
-    playerHost   = $PlayerHost
-    offline      = @{}
-    live         = $null
+# Print Node.js output (UTF-8) correctly in the console.
+try { [Console]::OutputEncoding = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false } catch { }
+
+function Section([string]$title) {
+    Write-Host ""
+    Write-Host "--- $title ---"
 }
+
+function Save-Utf8([string]$name, [string]$content) {
+    $full = Join-Path $here $name
+    [System.IO.File]::WriteAllText($full, $content, (New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false))
+}
+
+function Get-CleanDetail([string]$text) {
+    if (-not $text) { return "" }
+    $t = $text -replace '\|', '\|'
+    $t = $t -replace "\r?\n", " "
+    return $t
+}
+
+$stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+
+$machine = [string]$env:COMPUTERNAME
+try {
+    $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+    if ($os -and $os.Caption) { $machine = [string]$os.Caption }
+} catch { }
+if (-not $machine) { $machine = "(inconnue)" }
+
+$hostLabel = $PlayerHost
+if (-not $hostLabel) { $hostLabel = "(non specifie)" }
 
 Write-Host ""
 Write-Host "============================================================"
-Write-Host "  Scheduler4VP320 — Tests (hors-ligne + live)"
+Write-Host "  Scheduler4VP320 - Tests (offline + live)"
 Write-Host "============================================================"
 
-# --- prérequis : Node.js -------------------------------------------------
-$node = Get-Command node -ErrorAction SilentlyContinue
-if (-not $node) {
+# --- prerequisite: Node.js -----------------------------------------------
+$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+if (-not $nodeCmd) {
     Write-Host "[ERREUR] Node.js introuvable. Installez-le depuis https://nodejs.org puis relancez." -ForegroundColor Red
-    Write-Host "         Recommandé : v18 ou plus (fetch natif)."
+    Write-Host "         Recommande : v18 ou plus (fetch natif)."
     exit 1
 }
-$nodeVer = (& node --version).Trim()
-$report.node = $nodeVer
+
+$nodeVer = ""
+try { $nodeVer = [string](& node --version 2>$null) } catch { }
+$nodeVer = $nodeVer.Trim()
 Write-Host "[OK] Node.js : $nodeVer"
 
-# --- 1) tests hors-ligne -------------------------------------------------
-Write-Host ""
-Write-Host "--- 1) Suite hors-ligne (test-runner.js) ---"
+# --- 1) offline tests -----------------------------------------------------
+Section "1) Suite hors-ligne (test-runner.js)"
+
+$offlineJson = Join-Path $here "report.json"
+Remove-Item -Path $offlineJson -ErrorAction SilentlyContinue
+
 & node test-runner.js
 $offExit = $LASTEXITCODE
-if (Test-Path "report.json") {
-    $report.offline = (Get-Content "report.json" -Raw | ConvertFrom-Json)
+
+$offline = $null
+if (Test-Path $offlineJson) {
+    try {
+        $offline = Get-Content $offlineJson -Raw | ConvertFrom-Json
+    } catch {
+        Write-Host "[ERREUR] report.json illisible : $($_.Exception.Message)" -ForegroundColor Red
+        $offline = $null
+    }
 } else {
-    $report.offline = $null
     Write-Host "[ERREUR] report.json non produit par test-runner.js" -ForegroundColor Red
 }
 
-# --- 2) validation live (optionnel) --------------------------------------
+# --- 2) live validation (optional) ---------------------------------------
+$live = $null
 if ($PlayerHost) {
-    Write-Host ""
-    Write-Host "--- 2) Validation live du player $PlayerHost ---"
+    Section "2) Validation live du player $PlayerHost"
+
+    $liveJson = Join-Path $here "report-live.json"
+    Remove-Item -Path $liveJson -ErrorAction SilentlyContinue
+
     $vpArgs = @(
         "--host=$PlayerHost",
         "--user=$User",
@@ -76,80 +119,131 @@ if ($PlayerHost) {
         "--out=report-live.json"
     )
     if ($Upload) { $vpArgs += "--upload=1" }
+
     & node validate-player.js $vpArgs
     $liveExit = $LASTEXITCODE
-    if (Test-Path "report-live.json") {
-        $report.live = (Get-Content "report-live.json" -Raw | ConvertFrom-Json)
+
+    if (Test-Path $liveJson) {
+        try {
+            $live = Get-Content $liveJson -Raw | ConvertFrom-Json
+        } catch {
+            Write-Host "[ERREUR] report-live.json illisible : $($_.Exception.Message)" -ForegroundColor Red
+            $live = $null
+        }
     } else {
         Write-Host "[ERREUR] report-live.json non produit" -ForegroundColor Red
     }
 } else {
-    Write-Host ""
-    Write-Host "--- 2) Validation live ignorée (pas de -Host) ---"
+    Section "2) Validation live ignoree (pas de -Host)"
 }
 
-# --- 3) rapport consolidé ------------------------------------------------
-Write-Host ""
-Write-Host "--- 3) Génération de REPORT.md / REPORT.json ---"
+# --- 3) consolidated report ----------------------------------------------
+Section "3) Generation de REPORT.md / REPORT.json"
 
 $sb = New-Object System.Text.StringBuilder
+
 [void]$sb.AppendLine("# Compte rendu Scheduler4VP320")
 [void]$sb.AppendLine("")
 [void]$sb.AppendLine("- Date : **$stamp**")
-[void]$sb.AppendLine("- Machine : **$($report.machine)**")
-[void]$sb.AppendLine("- Node.js : **$($report.node)**")
-[void]$sb.AppendLine("- Player ciblé : **$($PlayerHost)**")
+[void]$sb.AppendLine("- Machine : **$machine**")
+[void]$sb.AppendLine("- Node.js : **$nodeVer**")
+[void]$sb.AppendLine("- Player cible : **$hostLabel**")
 [void]$sb.AppendLine("")
 
 # offline
-$off = $report.offline
-if ($off) {
+if ($offline) {
     [void]$sb.AppendLine("## 1. Tests hors-ligne")
     [void]$sb.AppendLine("")
-    [void]$sb.AppendLine("| Résultat | Test | Détail |")
+    [void]$sb.AppendLine("| Resultat | Test | Detail |")
     [void]$sb.AppendLine("|---|---|---|")
-    foreach ($r in $off.results) {
+    foreach ($r in $offline.results) {
         $mark = if ($r.pass) { "PASS" } else { "**FAIL**" }
-        $det = ($r.detail -replace "\|", "\|" -replace "`n", " ")
+        $det = Get-CleanDetail ([string]$r.detail)
         [void]$sb.AppendLine("| $mark | $($r.name) | $det |")
     }
     [void]$sb.AppendLine("")
-    [void]$sb.AppendLine("**Synthèse :** $($off.passed) succès, $($off.failed) échec(s) sur $($off.total).")
+    [void]$sb.AppendLine("**Synthese :** $($offline.passed) succes, $($offline.failed) echec(s) sur $($offline.total).")
     [void]$sb.AppendLine("")
 } else {
-    [void]$sb.AppendLine("## 1. Tests hors-ligne : NON EXÉCUTÉS")
+    [void]$sb.AppendLine("## 1. Tests hors-ligne : NON EXECUTES")
+    [void]$sb.AppendLine("")
+    [void]$sb.AppendLine("test-runner.js n'a pas produit de rapport exploitable (voir la console).")
     [void]$sb.AppendLine("")
 }
 
 # live
-$live = $report.live
 if ($live) {
     [void]$sb.AppendLine("## 2. Validation live du player")
     [void]$sb.AppendLine("")
-    [void]$sb.AppendLine("| Résultat | Test | Détail |")
+    [void]$sb.AppendLine("| Resultat | Test | Detail |")
     [void]$sb.AppendLine("|---|---|---|")
     foreach ($r in $live.results) {
         $mark = if ($r.pass) { "PASS" } else { "**FAIL**" }
-        $det = ($r.detail -replace "\|", "\|" -replace "`n", " ")
+        $det = Get-CleanDetail ([string]$r.detail)
         [void]$sb.AppendLine("| $mark | $($r.name) | $det |")
     }
     [void]$sb.AppendLine("")
-    [void]$sb.AppendLine("**Synthèse :** $($live.passed) succès, $($live.failed) échec(s) sur $($live.total).")
+    [void]$sb.AppendLine("**Synthese :** $($live.passed) succes, $($live.failed) echec(s) sur $($live.total).")
     [void]$sb.AppendLine("")
 } else {
-    [void]$sb.AppendLine("## 2. Validation live : NON EXÉCUTÉE")
+    [void]$sb.AppendLine("## 2. Validation live : NON EXECUTEE")
     [void]$sb.AppendLine("")
 }
 
-Set-Content -Path "REPORT.md" -Value $sb.ToString() -Encoding UTF8
-$report | ConvertTo-Json -Depth 10 | Set-Content -Path "REPORT.json" -Encoding UTF8
+$report = [ordered]@{
+    generatedAt = $stamp
+    machine     = $machine
+    node        = $nodeVer
+    playerHost  = $PlayerHost
+    offline     = $offline
+    live        = $live
+}
+
+Save-Utf8 "REPORT.md" $sb.ToString()
+Save-Utf8 "REPORT.json" ($report | ConvertTo-Json -Depth 10)
+
+# --- console summary -----------------------------------------------------
+Write-Host ""
+Write-Host "============================================================"
+if ($offline) {
+    $col = if ($offline.failed -gt 0) { "Red" } else { "Green" }
+    Write-Host "  Hors-ligne : $($offline.passed)/$($offline.total) OK, $($offline.failed) echec(s)" -ForegroundColor $col
+} else {
+    Write-Host "  Hors-ligne : NON EXECUTE" -ForegroundColor Red
+}
+if ($live) {
+    $col = if ($live.failed -gt 0) { "Red" } else { "Green" }
+    Write-Host "  Live       : $($live.passed)/$($live.total) OK, $($live.failed) echec(s)" -ForegroundColor $col
+} elseif ($PlayerHost) {
+    Write-Host "  Live       : NON EXECUTE" -ForegroundColor Red
+} else {
+    Write-Host "  Live       : ignore (pas de -Host)"
+}
+Write-Host "============================================================"
+
+if ($offline -and $offline.failed -gt 0) {
+    Write-Host ""
+    Write-Host "Details des echecs hors-ligne :" -ForegroundColor Yellow
+    foreach ($r in $offline.results) {
+        if (-not $r.pass) { Write-Host "  [FAIL] $($r.name) : $($r.detail)" -ForegroundColor Red }
+    }
+}
+if ($live -and $live.failed -gt 0) {
+    Write-Host ""
+    Write-Host "Details des echecs live :" -ForegroundColor Yellow
+    foreach ($r in $live.results) {
+        if (-not $r.pass) { Write-Host "  [FAIL] $($r.name) : $($r.detail)" -ForegroundColor Red }
+    }
+}
 
 Write-Host ""
-Write-Host "Compte rendu écrit : REPORT.md et REPORT.json"
+Write-Host "Compte rendu ecrit : REPORT.md et REPORT.json"
 Write-Host "Transmettez REPORT.md (ou REPORT.json) pour analyse."
 Write-Host ""
 
-# code retour global
-$offFail = if ($off) { $off.failed } else { 1 }
-$liveFail = if ($live) { $live.failed } else { 0 }
-if ($offFail -gt 0 -or $liveFail -gt 0) { exit 1 } else { exit 0 }
+# --- global exit code ----------------------------------------------------
+$failCount = 0
+if ($offline) { $failCount += [int]$offline.failed } else { $failCount += 1 }
+if ($live) { $failCount += [int]$live.failed }
+
+if ($failCount -gt 0) { exit 1 } else { exit 0 }
