@@ -171,6 +171,10 @@ Le repo contient **deux pages web statiques** + une config :
        référence + décompilation du logiciel Scheduler 2.3.3.0 (assembly .NET) → layout,
        calendrier, typical days, événements, commandes. Validé par round-trip octet-à-octet.
 - [ ] ⬜ Valider sur matériel réel (VP320) les endpoints REST officiels et l'auth Digest.
+       → **Partiel (09/11/2026, VP320 192.168.8.20)** : `POST /api/auth/login` 200,
+         `GET /api/system/state` 200, `GET /api/storages` 200 (kit de test, `REPORT.md`).
+         Restent à valider : upload FTP vers `/SYSTEM/`, prise en compte du `scheduler.tm2`
+         par le firmware, et version firmware (via `player-state.json`).
 - [x] ✅ Clarifier le mécanisme d'écriture : l'OSD/remote génère `scheduler.tm2`
        (import/export + mémorisation locale), déploiement vers `/SYSTEM/` **via FTP**
        (l'API REST officielle n'écrit pas de fichiers arbitraires). Choix documenté dans
