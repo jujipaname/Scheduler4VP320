@@ -20,6 +20,17 @@ if errorlevel 1 (
   exit /b 1
 )
 
+rem Preflight: the kit is a set of loose files, name the missing one early.
+for %%F in (clock-test.js tm2.js api.js ftp.js) do (
+  if not exist "%%F" (
+    echo [ERREUR] "%%F" est absent de ce dossier.
+    echo Le kit doit etre complet: recopie tout les fichiers ou lance git pull.
+    echo Dossier courant: %CD%
+    pause
+    exit /b 2
+  )
+)
+
 node clock-test.js %*
 set "RC=%ERRORLEVEL%"
 

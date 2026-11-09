@@ -37,9 +37,25 @@
 
 const fs = require('fs');
 
-const TM2 = require('./tm2.js');
-const API = require('./api.js');
-const FTP = require('./ftp.js');
+// The kit is copied as loose files onto a Windows box: a missing sibling module
+// must produce an actionable message, not a Node stack trace.
+function need(mod) {
+  try {
+    return require(mod);
+  } catch (e) {
+    if (e && e.code === 'MODULE_NOT_FOUND' && String(e.message).indexOf(mod) !== -1) {
+      console.error('[ERREUR] il manque ' + mod.replace(/^\.\//, '') + ' dans ce dossier.');
+      console.error('  clock-test.js a besoin de tm2.js, api.js et ftp.js, tous dans le MEME dossier.');
+      console.error('  Recopie l integralite du kit (ou git pull) puis relance clock-test.bat.');
+      process.exit(2);
+    }
+    throw e;
+  }
+}
+
+const TM2 = need('./tm2.js');
+const API = need('./api.js');
+const FTP = need('./ftp.js');
 
 // ------------------------------------------------------------------- args
 // Accepts --key=value, --key value, -Key=value and -Key value (PowerShell

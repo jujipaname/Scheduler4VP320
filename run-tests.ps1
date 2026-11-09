@@ -41,6 +41,24 @@ $ErrorActionPreference = "Continue"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $here
 
+# Preflight: the kit is a set of loose files. A missing module makes every
+# script die with a Node stack trace, so name the missing file up front.
+$Required = @("tm2.js", "api.js", "engine.js", "ftp.js", "test-runner.js", "validate-player.js")
+$Missing = @()
+foreach ($f in $Required) {
+    if (-not (Test-Path (Join-Path $here $f))) { $Missing += $f }
+}
+if ($Missing.Count -gt 0) {
+    Write-Host "============================================================"
+    Write-Host "  [ERREUR] Fichiers manquants dans ce dossier :"
+    foreach ($f in $Missing) { Write-Host ("    - " + $f) }
+    Write-Host ("  Dossier courant : " + $here)
+    Write-Host "  Recopiez l integralite du kit (procedureTest.md, section 3)"
+    Write-Host "  ou lancez 'git pull' dans ce dossier, puis relancez."
+    Write-Host "============================================================"
+    exit 2
+}
+
 # Print Node.js output (UTF-8) correctly in the console.
 try { [Console]::OutputEncoding = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false } catch { }
 
