@@ -171,8 +171,10 @@ Le repo contient **deux pages web statiques** + une config :
        référence + décompilation du logiciel Scheduler 2.3.3.0 (assembly .NET) → layout,
        calendrier, typical days, événements, commandes. Validé par round-trip octet-à-octet.
 - [ ] ⬜ Valider sur matériel réel (VP320) les endpoints REST officiels et l'auth Digest.
-- [ ] ⬜ Clarifier le mécanisme d'écriture : l'OSD/remote écrit-il dans `/SYSTEM/scheduler.tm2`
-       (via FTP/REST) ou un autre mécanisme ? Documenter le choix retenu.
+- [x] ✅ Clarifier le mécanisme d'écriture : l'OSD/remote génère `scheduler.tm2`
+       (import/export + mémorisation locale), déploiement vers `/SYSTEM/` **via FTP**
+       (l'API REST officielle n'écrit pas de fichiers arbitraires). Choix documenté dans
+       `README.md` (« Persistance ») mis en œuvre par `deploy.js` et le kit de test (`-Upload`).
 
 ### Phase 1 — Génération du fichier `scheduler.tm2` (P0)
 
@@ -234,8 +236,11 @@ Le repo contient **deux pages web statiques** + une config :
 - [ ] ⬜ Vérification firmware ≥ **V1.13.1**.
 - [x] ✅ Revue des pages `index.html` / `remote.html` et du `web-config.json` : onglets
        Télécommande (REST Digest) et Moteur ajoutés, endpoints alignés sur l'API officielle.
-- [ ] ⬜ Documenter la procédure de déploiement (copie du `.tm2` dans `/SYSTEM/` via FTP —
-       cf. `procedureTest.md` et `deploy.js`).
+- [x] ✅ Corrections de finition : Digest `uri` = chemin de requête (RFC 2617, testé),
+       log moteur gardé en cas de commande inconnue (`remote.html`), OSD `index.html`
+       recharge le planning mémorisé à l'ouverture + garde-fous (0 jour type, index hors bornes).
+- [x] ✅ Documenter la procédure de déploiement (copie du `.tm2` dans `/SYSTEM/` via FTP —
+       cf. `procedureTest.md` et `deploy.js`) + vérification firmware/NTP (section 8 bis).
 
 ## Checklist qualité (avant de considérer une tâche finie)
 

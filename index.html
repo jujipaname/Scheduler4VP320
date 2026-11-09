@@ -312,6 +312,7 @@
   }
 
   function renderCal() {
+    if (calSelDay >= model.days.length) calSelDay = 0;
     const y = calDate.getFullYear(), mo = calDate.getMonth();
     document.getElementById('cal-title').textContent =
       `${['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'][mo]} ${y}`;
@@ -448,7 +449,23 @@
   }
 
   function loadSchedule() {
-    model = defaultModel();
+    const b64 = localStorage.getItem('tm2');
+    let ok = false;
+    if (b64) {
+      try {
+        const bin = atob(b64);
+        const buf = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+        model = TM2.parse(buf);
+        ok = !!(model && model.days);
+      } catch (e) { ok = false; }
+    }
+    if (!ok) { model = defaultModel(); }
+    if (!model.dates) model.dates = {};
+    // guard: at least one typical day, indexes in range
+    if (!model.days.length) model.days.push({ name: 'Jour type 1', color: [0, 255, 0], events: [] });
+    if (curDay >= model.days.length) curDay = 0;
+    if (calSelDay >= model.days.length) calSelDay = 0;
     renderDays();
   }
 

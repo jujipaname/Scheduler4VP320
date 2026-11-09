@@ -166,6 +166,12 @@ test('api buildAuth structure', () => {
   return auth;
 });
 
+test('api digest uri = chemin de requête (RFC 2617)', () => {
+  const auth = API.buildAuth('admin', 'pw', { realm: 'r', nonce: 'n', qop: '' }, 'GET', '/api/system/state');
+  eq(/uri="\/api\/system\/state"/.test(auth), true, 'uri sans base absolue');
+  return auth;
+});
+
 // ------------------------------------------------------------------ report
 const passed = results.filter(r => r.pass).length;
 const failed = results.filter(r => !r.pass);

@@ -139,6 +139,16 @@ Un **résultat attendu** est :
 ## 8. Rappels matériel (à vérifier pendant les tests)
 
 - Firmware du player **≥ V1.13.1** (sinon le `scheduler.tm2` n'est pas lu).
+  *Comment vérifier :* page web embarquée `http://<ip>/` → informations système
+  (version firmware affichée), ou menu « System/About » sur l'écran. Si la version
+  est antérieure, mettre à jour le firmware avant d'aller plus loin (le `.tm2`
+  serait ignoré silencieusement).
 - Le fichier doit s'appeler **`scheduler.tm2`** et se trouver dans **`/SYSTEM/`**
   (ne jamais renommer).
-- Horloge du player **synchronisée NTP** pour un déclenchement précis à la minute.
+- Horloge du player synchronisée **NTP** pour un déclenchement précis à la minute.
+  *Comment vérifier :* activer le client NTP dans la configuration réseau du player
+  (serveur NTP à indiquer, ex. `pool.ntp.org` ou un serveur interne), puis comparer
+  l'heure affichée par le player avec une référence fiable ; un écart > 30 s peut
+  décaler les événements d'une minute sur les plages courtes.
+
+---

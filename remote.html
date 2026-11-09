@@ -369,7 +369,6 @@
   function renderPending() {
     const sel = document.getElementById('cal-day-select');
     sel.innerHTML = model.days.map((d, i) => `<option value="${i}">${esc(d.name)}</option>`).join('');
-    const p = document.getElementById('cal-assign-hint');
   }
 
   function applyAssign() {
@@ -404,10 +403,15 @@
   function save() {
     model.hdr.moddate = nowStamp();
     const enc = TM2.encode(model);
-    // Try REST write (Phase 3 placeholder), else just report success
-    const blob = new Blob([enc], { type: 'application/octet-stream' });
-    localStorage.setItem('tm2', btoa(String.fromCharCode.apply(null, enc)));
-    alert(`TM2 généré : ${enc.length} octets. Enregistré localement.`);
+    try {
+      localStorage.setItem('tm2', btoa(String.fromCharCode.apply(null, enc)));
+      localStorage.setItem('tm2-model', JSON.stringify(model));
+    } catch (e) {
+      alert('Sauvegarde locale impossible : ' + e.message);
+      return;
+    }
+    alert('TM2 généré : ' + enc.length + ' octets. Mémorisé localement.\n' +
+          'Déploiement : ⬇ Télécharger scheduler.tm2, puis copie dans /SYSTEM/ du player via FTP (cf. deploy.js et procedureTest.md).');
   }
 
   function download() {
@@ -558,7 +562,11 @@
       }) },
       now: () => new Date(),
       onTick: (t) => { if (t.day === null) return; },
-      onEvent: (o) => { log.textContent += '⏱ ' + new Date().toTimeString().slice(0, 8) + ' → ' + o.rest.path + (o.rest.query ? ' ' + JSON.stringify(o.rest.query) : '') + '\n'; },
+      onEvent: (o) => {
+        const ts = new Date().toTimeString().slice(0, 8);
+        if (o.skipped) { log.textContent += '⚠ ' + ts + ' commande inconnue (code ' + o.ev.code + ')\n'; return; }
+        log.textContent += '⏱ ' + ts + ' → ' + o.rest.path + (o.rest.query ? ' ' + JSON.stringify(o.rest.query) : '') + '\n';
+      },
       onError: (e) => { log.textContent += '⚠ ' + e.message + '\n'; }
     });
     daemon.start();

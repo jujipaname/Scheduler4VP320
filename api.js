@@ -153,8 +153,9 @@
       const challenge = parseChallenge(challengeHeader);
       if (!challenge || !username || !password) return res;
 
-      // 3) retry with Authorization
-      const auth = buildAuth(username, password, challenge, method, uri);
+      // 3) retry with Authorization. RFC 2617: the digest "uri" is the
+      //    request-target (path + query), not the absolute URL.
+      const auth = buildAuth(username, password, challenge, method, path + queryStr);
       return rawFetch(uri, method, auth);
     }
 
