@@ -107,7 +107,8 @@ s'exécute à 14:19:00. C'est cette heure-là qui est surveillée, sur l'horloge
 (le décalage avec le PC est affiché, il n'a aucune influence sur le test).
 
 Ajoute `--restore` (ou `-Restore`) pour que le script remette automatiquement l'ancien
-planning du player à la fin.
+planning du player à la fin. Sans `--upload`, `--restore=FICHIER` est un mode
+« restauration seule » : il redépose ce fichier dans `/SYSTEM/scheduler.tm2` et s'arrête.
 
 `PASS` prouve que le firmware interprète le fichier. `FAIL` oriente vers : fichier absent
 ou mal placé, horloge du player fausse, date du jour hors calendrier, firmware < V1.13.1.

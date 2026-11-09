@@ -30,7 +30,8 @@
  *                        (default (--in + 2) minutes + 30 s, 0 = no watch)
  *   --no-backup          do not save the previous /SYSTEM/scheduler.tm2
  *   --restore            re-upload the backup afterwards (undo the test)
- *   --restore=FILE       same, with an explicit local .tm2 to put back
+ *   --restore=FILE       same, with an explicit local .tm2 to put back. Without
+ *                        --upload this is a "restore only" run: no test, no wait
  *
  * Exit code: 0 = firmware applied the events, 1 = not observed / error.
  */
@@ -258,6 +259,34 @@ async function run() {
   console.log('='.repeat(60));
 
   const client = API.createClient({ base: BASE, username: USER, password: PASS });
+
+  // "--restore=FILE --no-upload" (or --restore with --upload=0): put that file
+  // back in /SYSTEM and stop. Undoing a test must not need another test.
+  if (RESTORE && !DO_UPLOAD) {
+    const src = RESTORE === true ? '' : RESTORE;
+    if (!src) {
+      console.error('[ERREUR] --restore sans --upload doit donner le fichier : --restore=scheduler.tm2.backup');
+      process.exit(1);
+    }
+    let data;
+    try { data = fs.readFileSync(src); }
+    catch (e) { console.error('[ERREUR] impossible de lire ' + src + ' : ' + e.message); process.exit(1); }
+    say('Restauration seule : ' + src + ' (' + data.length + ' octets) -> ' + REMOTE_DIR + '/' + TARGET);
+    try {
+      const info2 = await FTP.ftpPut(HOST, FTP_PORT, FTP_USER, FTP_PASS, REMOTE_DIR, TARGET, data,
+                                     { backup: false, mkdir: flag('mkdir'), dirHints: await storageNames(client, T) });
+      say('  depose dans ' + (info2.dir || REMOTE_DIR) + '/' + TARGET);
+      try {
+        const back = await getJSON(client, '/api/system/state/playbackengine', T);
+        say('  etat du player : ' + JSON.stringify(back.data && back.data.state ? back.data.state : back.data));
+      } catch (_) { /* not blocking */ }
+      say('  le player rejoue selon ce planning.');
+      process.exit(0);
+    } catch (e) {
+      console.error('[ERREUR] restauration : ' + e.message);
+      process.exit(1);
+    }
+  }
 
   const now = await readPlayerNow(client, T);
   if (!now) {

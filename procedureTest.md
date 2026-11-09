@@ -210,6 +210,16 @@ clock-test.bat -Host 192.168.1.100 -User admin -Pass "MotDePasseWeb" -FtpUser id
 
 ou préciser le fichier à remettre : `--restore=scheduler.tm2.backup.20261109-140548`.
 
+**Restaurer sans relancer le test** (aucun événement programmé, aucune attente) :
+
+```bat
+node clock-test.js -Host 192.168.1.100 -User admin -Pass "MotDePasseWeb" -FtpUser idalftp -FtpPass "MotDePasseFtp" -Restore scheduler.tm2.backup
+```
+
+Sans `-Upload`, `-Restore <fichier>` se contente de redéposer ce fichier dans
+`/SYSTEM/scheduler.tm2` et s'arrête : c'est le geste à faire après un test pour rendre au
+player son vrai planning.
+
 ### Cas C — Depuis l'invite de commandes `cmd`
 
 ```bat
