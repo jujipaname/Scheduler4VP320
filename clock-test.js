@@ -9,9 +9,12 @@
  * it to /SYSTEM/scheduler.tm2 (with a backup of the existing file) and then
  * polls GET /api/system/state/playbackengine to watch the transitions.
  *
- * Usage:
+ * Usage (run it from the project folder, e.g. clock-test.bat):
  *   node clock-test.js --host=192.168.8.20 --user=admin --pass=password \
  *                      --ftp-user=idalftp --ftp-pass=0000 --upload
+ *
+ * Both syntaxes are accepted (case-insensitive), so a PowerShell habit works:
+ *   node clock-test.js -Host 192.168.8.20 -User admin -Pass password -Upload
  *
  * Options:
  *   --host=IP            player address (default 192.168.1.100)
@@ -39,16 +42,44 @@ const API = require('./api.js');
 const FTP = require('./ftp.js');
 
 // ------------------------------------------------------------------- args
+// Accepts --key=value, --key value, -Key=value and -Key value (PowerShell
+// habit), case-insensitively. A bare option (no value, or followed by another
+// option) is a boolean flag.
+const OPTIONS = {};
+const SWITCHES = new Set();
+(function parseArgs() {
+  const av = process.argv.slice(2);
+  // Keys are normalized: case, dashes and underscores are ignored, so
+  // --http-port, -HttpPort and -httpport all mean the same option.
+  const keyOf = s => s.replace(/^--?/, '').toLowerCase().replace(/[-_]/g, '');
+  const isOption = s => /^--?[A-Za-z]/.test(s);
+  for (let i = 0; i < av.length; i++) {
+    const a = av[i];
+    if (!isOption(a)) continue;
+    const eq = a.indexOf('=');
+    if (eq !== -1) {
+      OPTIONS[keyOf(a.slice(0, eq))] = a.slice(eq + 1);
+      continue;
+    }
+    const k = keyOf(a);
+    const next = av[i + 1];
+    if (next !== undefined && !isOption(next)) { OPTIONS[k] = next; i++; }
+    else SWITCHES.add(k);
+  }
+})();
+
+function norm(key) { return String(key).toLowerCase().replace(/[-_]/g, ''); }
+
 function arg(key, def) {
-  const p = '--' + key + '=';
-  const a = process.argv.find(s => s.startsWith(p));
-  return a ? a.slice(p.length) : def;
+  const v = OPTIONS[norm(key)];
+  return v === undefined ? def : v;
 }
 function flag(key) {
-  const p = '--' + key;
-  const a = process.argv.find(s => s === p || s.startsWith(p + '='));
-  if (!a) return false;
-  return !/=(0|false|no)$/i.test(a);
+  const k = norm(key);
+  if (SWITCHES.has(k)) return true;
+  const v = OPTIONS[k];
+  if (v === undefined) return false;
+  return !/^(0|false|no)$/i.test(v);
 }
 
 const HOST = arg('host', '192.168.1.100');
@@ -291,6 +322,8 @@ async function run() {
     fs.writeFileSync(name, info.backup);
     backupName = name;
     say('  ancien fichier sauvegarde : ' + name + ' (' + info.backup.length + ' octets)');
+  } else if (!DO_BACKUP) {
+    say('  sauvegarde desactivee (--no-backup)');
   } else {
     say('  aucun ' + TARGET + ' existant a sauvegarder');
   }

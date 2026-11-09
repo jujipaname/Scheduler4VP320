@@ -35,6 +35,7 @@ VP320 / VP330
 | `ftp.js` | Client FTP minimal en Node pur (PASV, RETR/STOR/LIST, sauvegarde) ; résout le dossier distant (`/Internal shared storage/SYSTEM` sur VP320) |
 | `test-runner.js` | Suite hors-ligne (roundtrip TM2, moteur, MD5/Digest) |
 | `validate-player.js` | Validation **live** : auth Digest, **version firmware** (`/api/system/attributes`), stockages, upload FTP avec **sauvegarde de l'ancien fichier** **(requis : player joignable)** |
+| `clock-test.bat` | Lanceur Windows du test d'horloge (se place dans le dossier du projet, `pause` à la fin) |
 | `clock-test.js` | **Test d'horloge** : programme STOP puis `PLAY FOLDER 000` à +2/+3 min sur l'horloge **du player**, uploade et observe `/api/system/state/playbackengine` → prouve que le firmware exécute le planning |
 | `run-tests.bat` / `run-tests.ps1` | Orchestrateur Windows — cf. `procedureTest.md`. Live : `run-tests.bat -Host <ip> -User admin -Pass <mdp> [-Upload -FtpUser <u> -FtpPass <p> -Tm2 fichier.tm2]` |
 
@@ -77,9 +78,17 @@ Il lit l'horloge **du player**, génère un planning pour aujourd'hui avec deux 
 observables (`STOP` puis `PLAY FOLDER 000`) à `--in` et `--in+1` minutes, l'uploade
 (sauvegarde de l'ancien fichier), puis interroge l'état de lecture toutes les 2 s.
 
+Depuis le dossier du projet (le `.bat` s'y place tout seul, quel que soit le
+répertoire courant) :
+
 ```bat
-node clock-test.js --host=192.168.8.20 --user=admin --pass=<mdp> ^
-                   --ftp-user=idalftp --ftp-pass=<mdp ftp> --in=2 --upload
+clock-test.bat -Host 192.168.8.20 -User admin -Pass <mdp> -FtpUser idalftp -FtpPass <mdp ftp> -In 2 -Upload
+```
+
+ou directement avec Node (les deux syntaxes sont acceptées, casse et tirets ignorés) :
+
+```bat
+node clock-test.js --host=192.168.8.20 --user=admin --pass=<mdp> --ftp-user=idalftp --ftp-pass=<mdp ftp> --in=2 --upload
 ```
 
 Sortie attendue (`--watch` par défaut = `--in+2` minutes + 30 s) :

@@ -137,10 +137,23 @@ pas si le **firmware applique** le planning. `clock-test.js` répond à cette qu
 4. il interroge `GET /api/system/state/playbackengine` toutes les 2 s et affiche les
    changements d'état.
 
+Dans le dossier du projet, le plus simple (le `.bat` se place dans son propre dossier) :
+
+```bat
+clock-test.bat -Host 192.168.1.100 -User admin -Pass "MotDePasseWeb" -FtpUser idalftp -FtpPass "MotDePasseFtp" -In 2 -Upload
+```
+
+Ou avec Node directement — les deux syntaxes sont acceptées (`-Host valeur` comme
+`--host=valeur`, casse et tirets ignorés) :
+
 ```powershell
 node clock-test.js --host 192.168.1.100 --user admin --pass "MotDePasseWeb" `
                    --ftp-user idalftp --ftp-pass "MotDePasseFtp" --in 2 --upload
 ```
+
+> Le script doit être lancé **depuis le dossier du projet** (ou via `clock-test.bat`) :
+> `Cannot find module 'C:\Users\...\clock-test.js'` signifie simplement que le
+> répertoire courant n'est pas le bon.
 
 Sans `--upload`, le script **génère seulement** le fichier (aucune écriture sur le
 player) : utile pour inspecter le planning produit.
