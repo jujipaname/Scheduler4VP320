@@ -125,6 +125,48 @@ Avant d'écrire, le script **télécharge l'ancien `/SYSTEM/scheduler.tm2`** dan
 > `-Pass` et `-Upload` sont sensibles à la casse des commutateurs (`-Upload` avec
 > une majuscule).
 
+### Cas D — Prouver que le firmware exécute le planning
+
+Les cas A/B valident le format, l'authentification et le dépôt du fichier. Ils ne disent
+pas si le **firmware applique** le planning. `clock-test.js` répond à cette question :
+
+1. il lit l'horloge **du player** (`GET /api/system/state/datetime`) ;
+2. il génère un `scheduler.tm2` pour **aujourd'hui** avec deux événements observables
+   sur le même jour type : `STOP` à `--in` minutes et `PLAY FOLDER 000` à `--in+1` ;
+3. il l'uploade avec sauvegarde de l'ancien fichier ;
+4. il interroge `GET /api/system/state/playbackengine` toutes les 2 s et affiche les
+   changements d'état.
+
+```powershell
+node clock-test.js --host 192.168.1.100 --user admin --pass "MotDePasseWeb" `
+                   --ftp-user idalftp --ftp-pass "MotDePasseFtp" --in 2 --upload
+```
+
+Sans `--upload`, le script **génère seulement** le fichier (aucune écriture sur le
+player) : utile pour inspecter le planning produit.
+
+Durée d'observation : `--watch` (par défaut `--in + 2` minutes + 30 s). Résultat attendu :
+
+```
+Observation pendant 270 s (etat de lecture toutes les 2 s) ...
+  21:14:01  state=playing  folder=0
+  21:16:02  state=stopped
+  21:17:02  state=playing  folder=0
+Arret observe (state=stopped)        : OUI
+Lecture dossier 000 observee         : OUI
+RESULTAT : PASS - les deux evenements ont ete executes (STOP puis PLAY FOLDER 000).
+```
+
+- **PASS** ⇒ le firmware interprète bien `/SYSTEM/scheduler.tm2`, le format de l'éditeur
+  est correct de bout en bout.
+- **FAIL** ⇒ aucun changement d'état. Vérifier dans cet ordre : chemin réel du fichier
+  (`/Internal shared storage/SYSTEM/scheduler.tm2`), horloge du player, date du jour
+  présente dans le calendrier, firmware ≥ V1.13.1.
+
+⚠️ Ce test **remplace le planning en place**. L'ancien fichier est récupéré dans
+`scheduler.tm2.backup` (dossier courant) : pour le remettre, renvoyer ce fichier par FTP
+sous le nom `scheduler.tm2`.
+
 ### Cas C — Depuis l'invite de commandes `cmd`
 
 ```bat
@@ -142,7 +184,9 @@ run-tests.bat -Host 192.168.1.100 -User admin -Pass mdp
 | `report.json` | Détail de la suite hors-ligne |
 | `report-live.json` | Détail de la validation live |
 | `player-state.json` | État complet renvoyé par le player (`/api/system/attributes`, `/api/system/state`, `/api/storages`, dossiers médias, bannière FTP) : firmware, NTP, stockages montés |
-| `scheduler.tm2.backup` | Sauvegarde de l'ancien `/SYSTEM/scheduler.tm2` récupérée avant l'upload (`-Upload`) |
+| `scheduler.tm2.backup` | Sauvegarde de l'ancien `/SYSTEM/scheduler.tm2` récupérée avant l'upload (`-Upload`, ou `clock-test.js --upload`) |
+| `scheduler-clocktest.tm2` | Planning de test généré par `clock-test.js` (utilisable avec `-Tm2`) |
+| `clock-test.json` | Résultat détaillé du test d'horloge : horloge du player, événements, chronologie des états, verdict |
 
 Le terminal affiche aussi les résultats en direct (`PASS` / `FAIL`).
 
@@ -201,6 +245,8 @@ Un **résultat attendu** est :
   serait ignoré silencieusement).
 - Le fichier doit s'appeler **`scheduler.tm2`** et se trouver dans **`/SYSTEM/`**
   (ne jamais renommer).
+- **Exécution réelle** : lancer `clock-test.js` (Cas D) et obtenir `PASS`. C'est la seule
+  preuve que le firmware applique le planning.
 - Horloge du player synchronisée **NTP** pour un déclenchement précis à la minute.
   *Comment vérifier :* activer le client NTP dans la configuration réseau du player
   (serveur NTP à indiquer, ex. `pool.ntp.org` ou un serveur interne), puis comparer

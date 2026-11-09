@@ -32,8 +32,10 @@ VP320 / VP330
 | `engine.js` | Moteur de secours réseau : déclenchement à la minute des commandes via la REST API (`resolveDay`, `eventsFor`, `toREST`, `createDaemon`) |
 | `api.js` | Client REST officiel avec **Digest auth** en JS pur (MD5 RFC 1321, RFC 2617) |
 | `deploy.js` | Déploiement FTP du `scheduler.tm2` vers `/SYSTEM/` (`npm install` puis `node deploy.js <model.json> <ip> <user> <pass>`) |
+| `ftp.js` | Client FTP minimal en Node pur (PASV, RETR/STOR/LIST, sauvegarde) ; résout le dossier distant (`/Internal shared storage/SYSTEM` sur VP320) |
 | `test-runner.js` | Suite hors-ligne (roundtrip TM2, moteur, MD5/Digest) |
 | `validate-player.js` | Validation **live** : auth Digest, **version firmware** (`/api/system/attributes`), stockages, upload FTP avec **sauvegarde de l'ancien fichier** **(requis : player joignable)** |
+| `clock-test.js` | **Test d'horloge** : programme STOP puis `PLAY FOLDER 000` à +2/+3 min sur l'horloge **du player**, uploade et observe `/api/system/state/playbackengine` → prouve que le firmware exécute le planning |
 | `run-tests.bat` / `run-tests.ps1` | Orchestrateur Windows — cf. `procedureTest.md`. Live : `run-tests.bat -Host <ip> -User admin -Pass <mdp> [-Upload -FtpUser <u> -FtpPass <p> -Tm2 fichier.tm2]` |
 
 ## Modèle de planning (format officiel)
@@ -65,6 +67,35 @@ node test-runner.js
 ```
 
 Détails et interprétation : **`procedureTest.md`**. Bilan hors-ligne attendu : 13/13 PASS.
+
+### Prouver que le firmware applique le planning (`clock-test.js`)
+
+Le format, l'auth et l'upload étant validés, ce test répond à la dernière question :
+**le firmware exécute-t-il vraiment `/SYSTEM/scheduler.tm2` ?**
+
+Il lit l'horloge **du player**, génère un planning pour aujourd'hui avec deux événements
+observables (`STOP` puis `PLAY FOLDER 000`) à `--in` et `--in+1` minutes, l'uploade
+(sauvegarde de l'ancien fichier), puis interroge l'état de lecture toutes les 2 s.
+
+```bat
+node clock-test.js --host=192.168.8.20 --user=admin --pass=<mdp> ^
+                   --ftp-user=idalftp --ftp-pass=<mdp ftp> --in=2 --upload
+```
+
+Sortie attendue (`--watch` par défaut = `--in+2` minutes + 30 s) :
+
+```
+  12:09:02  state=stopped
+  12:10:02  state=playing  folder=0
+RESULTAT : PASS - les deux evenements ont ete executes (STOP puis PLAY FOLDER 000).
+```
+
+`PASS` prouve que le firmware interprète le fichier. `FAIL` oriente vers : fichier absent
+ou mal placé, horloge du player fausse, date du jour hors calendrier, firmware < V1.13.1.
+
+⚠️ Le test **remplace** le planning en place : `scheduler.tm2.backup` est écrit dans le
+dossier courant. Pour remettre le planning réel :
+`node deploy.js` ou recopier `scheduler.tm2.backup` en `scheduler.tm2` par FTP.
 
 ## Statut
 

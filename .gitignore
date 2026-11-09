@@ -3,3 +3,6 @@ REPORT.md
 REPORT.json
 report-live.json
 player-state.json
+clock-test.json
+scheduler-clocktest.tm2
+scheduler.tm2.backup

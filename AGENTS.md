@@ -170,14 +170,15 @@ Le repo contient **deux pages web statiques** + une config :
 - [x] ✅ **Reverse-engineering du format `scheduler.tm2`** : analyse binaire des fichiers de
        référence + décompilation du logiciel Scheduler 2.3.3.0 (assembly .NET) → layout,
        calendrier, typical days, événements, commandes. Validé par round-trip octet-à-octet.
-- [ ] ⬜ Valider sur matériel réel (VP320) les endpoints REST officiels et l'auth Digest.
-       → **Partiel (09/11/2026, VP320 192.168.8.20)** : `POST /api/auth/login` 200,
-         `GET /api/system/state` 200, `GET /api/storages` 200 (kit de test, `REPORT.md`).
-         **Blocage identifié** : l'upload FTP répond `530 Authentication failed` avec le
-         compte REST (`admin` + mot de passe web) → le serveur FTP du player utilise des
-         identifiants distincts (`-FtpUser` / `-FtpPass` ajoutés au kit) ; à confirmer.
-         Restent à valider : upload FTP vers `/SYSTEM/`, prise en compte du `scheduler.tm2`
-         par le firmware, et version firmware (`/api/system/attributes`).
+- [x] ✅ Valider sur matériel réel (VP320) les endpoints REST officiels et l'auth Digest.
+       → **Validé (09/11/2026, VP320 192.168.8.20)** : `POST /api/auth/login` 200,
+         `GET /api/system/state` 200, `GET /api/storages` 200, `GET /api/system/attributes`
+         200 → **firmware v1.13.1 (2022-09-01)**, série `00014ea23eede685`.
+         Upload FTP réel : 82708 octets déposés dans
+         **`/Internal shared storage/SYSTEM/scheduler.tm2`** (compte `idalftp`), ancien
+         fichier (83488 o) sauvegardé en `scheduler.tm2.backup`. **6/6 PASS** en live,
+         13/13 en hors-ligne. La racine FTP **contient les stockages** (elle n'est pas la
+         racine du stockage) : le kit résout désormais le chemin tout seul (`ftp.js`).
 - [x] ✅ Clarifier le mécanisme d'écriture : l'OSD/remote génère `scheduler.tm2`
        (import/export + mémorisation locale), déploiement vers `/SYSTEM/` **via FTP**
        (l'API REST officielle n'écrit pas de fichiers arbitraires). Choix documenté dans
@@ -237,8 +238,12 @@ Le repo contient **deux pages web statiques** + une config :
        - `run-tests.ps1` / `run-tests.bat` — orchestrateur Windows produisant un compte rendu
          consolidé `REPORT.md` / `REPORT.json` (à transmettre pour analyse).
        - `procedureTest.md` — marche à suivre détaillée pour l'exécution sur matériel réel.
-- [ ] ⬜ Tests sur matériel réel (lecture, veille, CEC, PJLINK, déclenchement à la minute)
-       via le kit de test ci-dessus.
+- [x] ✅ **Test d'horloge** `clock-test.js` : génère un planning pour aujourd'hui avec
+       `STOP` puis `PLAY FOLDER 000` à +2/+3 min sur l'horloge **du player**, l'uploade et
+       observe `/api/system/state/playbackengine` → **preuve que le firmware applique le
+       `scheduler.tm2`**. Validé de bout en bout contre un player simulé (arrêt puis reprise
+       observés) ; reste à exécuter sur le VP320 réel.
+- [ ] ⬜ Tests sur matériel réel des commandes restantes (veille, CEC, PJLINK).
 - [ ] ⬜ Synchronisation horloge player (**NTP**) documentée/vérifiée.
 - [ ] ⬜ Vérification firmware ≥ **V1.13.1**.
 - [x] ✅ Revue des pages `index.html` / `remote.html` et du `web-config.json` : onglets
