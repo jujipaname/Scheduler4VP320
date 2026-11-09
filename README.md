@@ -31,7 +31,8 @@ VP320 / VP330
 | `tm2.js` | Parseur/encodeur du format binaire `scheduler.tm2` (reverse du logiciel Scheduler 2.3.3.0, validé octet par octet) |
 | `engine.js` | Moteur de secours réseau : déclenchement à la minute des commandes via la REST API (`resolveDay`, `eventsFor`, `toREST`, `createDaemon`) |
 | `api.js` | Client REST officiel avec **Digest auth** en JS pur (MD5 RFC 1321, RFC 2617) |
-| `deploy.js` | Déploiement FTP du `scheduler.tm2` vers `/SYSTEM/` (`npm install` puis `node deploy.js <model.json> <ip> <user> <pass>`) |
+| `deploy.bat` / `deploy-scheduler.js` | **Déploiement en une commande** : `deploy.bat planning.tm2 -Host <ip> -User <u> -Pass <mdp> -FtpUser <u> -FtpPass <mdp>` → FTP vers `<stockage>/SYSTEM/scheduler.tm2` avec vérification TM2 + firmware et sauvegarde de l'ancien |
+| `deploy.js` | Déploiement depuis un modèle JSON (`npm install`, module `basic-ftp`) |
 | `ftp.js` | Client FTP minimal en Node pur (PASV, RETR/STOR/LIST, sauvegarde) ; résout le dossier distant (`/Internal shared storage/SYSTEM` sur VP320) |
 | `test-runner.js` | Suite hors-ligne (roundtrip TM2, moteur, MD5/Digest) |
 | `validate-player.js` | Validation **live** : auth Digest, **version firmware** (`/api/system/attributes`), stockages, upload FTP avec **sauvegarde de l'ancien fichier** **(requis : player joignable)** |
@@ -87,11 +88,18 @@ logger-test.bat -Host 192.168.8.20 -User admin -Pass <mdp>
 
 (équivalent à `node logger-test.js …`, avec vérification Node/fichiers et `pause` finale).
 
-- `remote.html` onglet **Fichier** contient déjà : « ⬇ Charger depuis le player »
-  (lecture + parse du `.tm2` du player), « ⬆ Déployer vers le player » (écriture REST
-  avec sonde binaire + sauvegarde locale du fichier remplacé) et « 🔎 Tester l'accès
-  fichiers ». Si le domaine Logger est absent ou corrompt les octets, l'éditeur le dit
-  et propose le chemin FTP.
+- Le domaine Logger **existe** sur le VP320 de test (v1.13.1) mais tient d'un **journal
+texte** : chaque `POST` appende la chaîne **+ un `%0A`**, les octets ≥ `0x80` sont
+re-encodés (corruption), et les identifiants **refusent les chemins** (404 sur
+`SYSTEM/scheduler.tm2`). Conséquence mesurée (sonde `logger-test.json`, 09/11/2026) :
+**l'éditeur web ne peut ni lire ni déployer le planning par REST** — les boutons le
+refusent d'eux-mêmes et renvoient au chemin FTP. Workflow retenu :
+
+1. éditer dans `remote.html` → « 💾 Générer scheduler.tm2 » (mémorisé localement) ;
+2. exporter le `.tm2` (« ⬇ Télécharger .tm2 ») ;
+3. déployer par FTP : `deploy.bat planning.tm2 -Host <ip> -User <u> -Pass <mdp>
+   -FtpUser idalftp -FtpPass <mdp ftp>`. Il vérifie le TM2, la version firmware, le
+   chemin du stockage et sauvegarde l'ancien fichier.
 - Vider le domaine Logger en mémoire n'a lieu QUE sur le fichier sonde `s4vp-probe.tmp`.
 
 ### Prouver que le firmware applique le planning (`clock-test.js`)

@@ -186,10 +186,18 @@ async function run() {
         const u = Buffer.from(expected.toString('latin1'), 'utf8');
         if (got.length !== u.length) utf8 = false;
         else { for (let i = 0; i < u.length; i++) { if (u[i] !== got[i]) { utf8 = false; break; } } }
-        detail = same ? '' : (utf8
-          ? 'corruption UTF-8 (les octets >= 0x80 sont doubles) -> texte seul passable'
-          : 'returned length ' + got.length + ', attendu ' + expected.length +
-            ' ; premiers octets ' + Array.from(got.slice(0, 12)).join(','));
+        if (utf8) {
+          detail = 'corruption UTF-8 (les octets >= 0x80 sont doubles) -> texte seul passable';
+        } else {
+          let diff = -1;
+          for (let i = 0; i < Math.min(got.length, expected.length) && diff === -1; i++) {
+            if (got[i] !== expected[i]) diff = i;
+          }
+          detail = diff === -1
+            ? 'longueur ' + got.length + ' au lieu de ' + expected.length
+            : 'premier ecart au rang ' + diff + ' : lu ' + got[diff] + ' au lieu de ' + expected[diff] +
+              ' ; octets lus ' + Array.from(got.slice(0, 16)).join(',');
+        }
       }
       roundTrip = same ? 'binary-ok' : 'not-binary';
       out.roundTrip = roundTrip;

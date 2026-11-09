@@ -45,6 +45,8 @@ validate-player.js (validation live)
 clock-test.js      (test d'horloge : le firmware applique-t-il le planning ?)
 clock-test.bat     (lanceur Windows du test d'horloge)
 logger-test.bat    (lanceur Windows de la sonde Logger)
+deploy.bat         (deploiement FTP d'un .tm2 en une commande)
+deploy-scheduler.js(module appele par deploy.bat)
 run-tests.ps1      (orchestrateur Windows)
 run-tests.bat      (lanceur double-clic)
 scheduler1.tm2     (fichiers de référence)
@@ -235,6 +237,19 @@ logger-test.bat -Host 192.168.8.20 -User admin -Pass "MotDePasseWeb"
 Aucune modification du player, hormis son fichier sonde cree puis supprime.
 Transmettre la sortie (le Resume surtout) : elle decide si l'onglet Fichier de
 `remote.html` peut charger ET deployer le planning en REST, ou si le FTP reste requis.
+
+### Deploiement d'un planning prepare (apres edition web)
+
+L'editeur `remote.html` ne peut pas ecrire sur le player (cf. sonde Logger ci-dessus).
+Après avoir telecharge le `.tm2` depuis l'onglet Fichier, une commande suffit :
+
+```bat
+deploy.bat planning.tm2 -Host 192.168.8.20 -User admin -Pass "MotDePasseWeb" -FtpUser idalftp -FtpPass "MotDePasseFtp"
+```
+
+Il verifie le fichier (parse TM2 : jours types, dates; calendrier vide = alerte), la
+version firmware, resoud le dossier du stockage, envoie le fichier **sous le nom
+`scheduler.tm2`** et garde l'ancien en `scheduler.tm2.backup` (ou `-NoBackup`).
 
 ### Cas C — Depuis l'invite de commandes `cmd`
 
