@@ -139,12 +139,12 @@
 
     function setCredentials(u, p) { username = u; password = p; }
 
-    async function request(path, method, query) {
+    async function request(path, method, query, body) {
       const queryStr = query ? '?' + new URLSearchParams(query).toString() : '';
       const uri = base + path + queryStr;
 
       // 1) first attempt WITHOUT auth header (probe) -> expect 401 challenge
-      let res = await rawFetch(uri, method, null);
+      let res = await rawFetch(uri, method, null, body);
       if (res.status !== 401) return res;
 
       // 2) grab challenge
@@ -154,15 +154,20 @@
       if (!challenge || !username || !password) return res;
 
       // 3) retry with Authorization. RFC 2617: the digest "uri" is the
-      //    request-target (path + query), not the absolute URL.
+      //    request-target (path + query), not the absolute URL. The body is
+      //    NOT part of the digest response with qop="auth".
       const auth = buildAuth(username, password, challenge, method, path + queryStr);
-      return rawFetch(uri, method, auth);
+      return rawFetch(uri, method, auth, body);
     }
 
-    async function rawFetch(uri, method, auth) {
+    async function rawFetch(uri, method, auth, body) {
       const headers = { 'X-Requested-With': 'XMLHttpRequest' };
       if (auth) headers['Authorization'] = auth;
-      return fetch(uri, { method: method || 'GET', headers, credentials: 'include' });
+      if (body !== undefined && body !== null) {
+        headers['Content-Type'] = 'application/json; charset=UTF-8';
+        if (typeof body !== 'string') body = JSON.stringify(body);
+      }
+      return fetch(uri, { method: method || 'GET', headers, body, credentials: 'include' });
     }
 
     // convenience: POST a command

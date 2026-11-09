@@ -35,6 +35,7 @@ Copier **l'intégralité** de ce dossier (au minimum) vers un dossier local, par
 `C:\Scheduler4VP320` :
 
 ```
+logger-test.js     (sonde REST Logger : lecture/ecriture de fichiers par REST)
 api.js             (client REST Digest)
 tm2.js             (parseur/encodeur TM2)
 ftp.js             (client FTP - requis par validate-player.js ET clock-test.js)

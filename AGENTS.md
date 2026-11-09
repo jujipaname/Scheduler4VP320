@@ -202,9 +202,17 @@ Le repo contient **deux pages web statiques** + une config :
        (flèches/OK, codes IR NEC), gardien de focus, auto-fermeture.
 - [x] ✅ **`remote.html` (web)** : mêmes capacités d'édition depuis le navigateur via l'IP
        (jours types + événements + calendrier + import/export `scheduler.tm2`).
-- [ ] ⬜ Brancher le **chargement/sauvegarde** réel du `scheduler.tm2` sur le player
-       (endpoint REST à identifier — Phase 3/4) ; persistance actuelle via import/export
-       local + localStorage.
+- [x] ✅ Brancher le **chargement/sauvegarde** du `scheduler.tm2` sur le player via la
+       REST **Logger** (`/api/logs` : stat, read base64, append, delete) — découvert dans la
+       spécification officielle, absent des premiers inventaires d'endpoints. `remote.html`
+       (onglet Fichier) implémente « Charger depuis le player », « Déployer vers le player »
+       (avec sonde d'intégrité binaire + sauvegarde locale du fichier remplacé) et « Tester
+       l'accès fichiers » ; l'OST `index.html` garde sa persistance locale.
+       → **Validation d'exécution sur player réel : `node logger-test.js`** (sonde hors
+         flux, ne modifie que `s4vp-probe.tmp`). Deux inconnues matérielles :
+         (1) les identifiants Logger acceptent-ils des chemins (`SYSTEM/scheduler.tm2`) ;
+         (2) l'append préserve-t-il les octets binaires (≥ 0x80) -> si non, le déploiement
+             web est refusé par l'éditeur et le chemin FTP reste obligatoire.
 
 ### Phase 3 — Accès réseau & REST (P1)
 

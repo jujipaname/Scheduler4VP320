@@ -187,7 +187,24 @@
         <button class="btn btn-ghost" onclick="loadLocal()">📂 Restaurer localement</button>
         <button class="btn btn-ghost" onclick="exportJson()">⬇ Exporter modèle JSON</button>
       </div>
-      <div class="hint">Le player attend <b>scheduler.tm2</b> dans le dossier <b>/SYSTEM/</b>. Le nom ne doit pas être modifié. Déploiement du fichier : via FTP (l'API REST officielle ne permet pas l'écriture de fichiers arbitraires).</div>
+      <div class="hint">Le player attend <b>scheduler.tm2</b> dans le dossier <b>SYSTEM</b> du stockage (nom non modifiable).</div>
+    </div>
+
+    <div class="card">
+      <h2>Player (REST « Logger »)</h2>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="loadFromPlayer()">⬇ Charger depuis le player</button>
+        <button class="btn btn-danger" onclick="deployToPlayer()">⬆ Déployer vers le player</button>
+        <button class="btn btn-ghost" onclick="loggerProbe()">🔎 Tester l'accès fichiers</button>
+      </div>
+      <div class="hint">
+        Utilise les identifiants de l'onglet <b>Télécommande</b>. « Charger » lit le fichier
+        <code>scheduler.tm2</code> du player par REST (domaine Logger) ; « Déployer » vérifie
+        d'abord que l'écriture REST préserve les octets binaires, télécharge une sauvegarde du
+        fichier remplacé, puis écrit le nouveau. Si le domaine Logger est absent (ancien
+        firmware), passer par le déploiement FTP depuis un PC (<code>procedureTest.md</code>).
+      </div>
+      <div id="player-status" class="hint" style="margin-top:8px; color:#8fa0b5;"></div>
     </div>
   </div>
 </div>
@@ -439,7 +456,13 @@
     r.readAsArrayBuffer(f);
   }
 
-  function saveLocal() { localStorage.setItem('tm2-model', JSON.stringify(model)); alert('Modèle sauvegardé localement.'); }
+  function saveLocal() { saveLocalQuiet(true); }
+  function saveLocalQuiet(say) {
+    try {
+      localStorage.setItem('tm2-model', JSON.stringify(model));
+      if (say) alert('Modèle sauvegardé localement.');
+    } catch (e) { if (say) alert('Sauvegarde locale impossible : ' + e.message); }
+  }
   function exportJson() {
     const blob = new Blob([JSON.stringify(model, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
@@ -454,6 +477,218 @@
     model = JSON.parse(s);
     renderDays(); renderCal(); renderLegend(); renderPending();
     alert('Modèle restauré.');
+  }
+
+  // ------------------------------------------------------------------ player (Logger REST)
+  // The documented Logger domain offers generic file operations:
+  //   GET  /api/logs list, /api/logs/:id/stat, /api/logs/:id/read?offset&length (base64)
+  //   POST /api/logs/:id {"data":"..."}  (append), DELETE /api/logs/:id
+  // On a VP320 the identifier may or may not accept paths; the page probes it
+  // at runtime rather than assuming.
+  const PLAYER_CANDIDATES = [
+    'scheduler.tm2',
+    'SYSTEM/scheduler.tm2',
+    'Internal shared storage/SYSTEM/scheduler.tm2',
+    'SYSTEM/scheduler.tm2.backup'
+  ];
+  const LOGGGER_CHUNK = 16384;
+
+  function encPath(id) { return String(id).split('/').map(x => encodeURIComponent(x)).join('/'); }
+  function playerSay(msg) { document.getElementById('player-status').textContent = msg; }
+
+  async function loggerStat(c, id) {
+    const res = await c.request('/api/logs/' + encPath(id) + '/stat', 'GET');
+    if (res.status !== 200) return null;
+    const j = await res.json().catch(() => null);
+    const size = j && j.data && j.data.size;
+    return size === undefined || size === null ? null : Number(size);
+  }
+
+  async function loggerListIds(c) {
+    const res = await c.request('/api/logs', 'GET');
+    if (res.status !== 200) return null;
+    const j = await res.json().catch(() => null);
+    return j && Array.isArray(j.data) ? j.data : null;
+  }
+
+  async function loggerReadAll(c, id, size, progress) {
+    const parts = [];
+    let off = 0;
+    while (off < size) {
+      const q = '/api/logs/' + encPath(id) + '/read?offset=' + off + '&length=' + LOGGGER_CHUNK;
+      const res = await c.request(q, 'GET');
+      if (res.status !== 200) throw new Error('lecture HTTP ' + res.status + ' a l offset ' + off);
+      const j = await res.json().catch(() => null);
+      const b64 = j && j.data && j.data.data;
+      if (b64 === undefined) throw new Error('reponse /read inattendue');
+      const u = Uint8Array.from(atob(b64), x => x.charCodeAt(0));
+      parts.push(u);
+      const n = u.length;
+      if (!n) throw new Error('lecture bloquee a l offset ' + off);
+      off += n;
+      if (progress) progress(off, size);
+    }
+    const total = parts.reduce((a, p) => a + p.length, 0);
+    const out = new Uint8Array(total);
+    let o = 0;
+    for (const p of parts) { out.set(p, o); o += p.length; }
+    return out;
+  }
+
+  async function loggerAppend(c, id, bytes) {
+    // bytes: Uint8Array -> latin1 string -> JSON body. Byte fidelity is checked
+    // by the probe below; if the server stores UTF-8 the bytes >= 0x80 double.
+    let str = '';
+    const N = 4096;
+    for (let i = 0; i < bytes.length; i += N) {
+      str += String.fromCharCode.apply(String, bytes.slice(i, i + N));
+    }
+    const res = await c.request('/api/logs/' + encPath(id), 'POST', undefined, { data: str });
+    if (res.status !== 200) throw new Error('ecriture HTTP ' + res.status);
+  }
+
+  async function loggerDelete(c, id) {
+    await c.request('/api/logs/' + encPath(id), 'DELETE');
+  }
+
+  async function loggerFind(c) {
+    for (const id of PLAYER_CANDIDATES) {
+      const size = await loggerStat(c, id);
+      if (size !== null) return { id, size };
+    }
+    return null;
+  }
+
+  // Is POST append byte-safe on this server? Cheap and decisive.
+  async function loggerBinaryOk(c) {
+    const probe = 's4vp-probe.tmp';
+    const expected = new Uint8Array(512);
+    for (let i = 0; i < 256; i++) { expected[i] = i; expected[256 + i] = i; }
+    try {
+      await loggerDelete(c, probe);
+      await loggerAppend(c, probe, expected);
+      const res = await c.request('/api/logs/' + encPath(probe) + '/read?offset=0&length=512', 'GET');
+      if (res.status !== 200) return { ok: false, why: 'relecture HTTP ' + res.status };
+      const j = await res.json().catch(() => null);
+      const b64 = j && j.data && j.data.data;
+      if (b64 === undefined) return { ok: false, why: 'reponse /read inattendue' };
+      const got = Uint8Array.from(atob(b64), x => x.charCodeAt(0));
+      let diff = -1;
+      for (let i = 0; i < Math.min(512, got.length); i++) {
+        if (got[i] !== expected[i]) { diff = i; break; }
+      }
+      if (diff === -1) return { ok: true };
+      return { ok: false, why: 'octets modifies (premier ecart au rang ' + diff +
+        ' : ' + got[diff] + ' au lieu de ' + expected[diff] + ') - le serveur n archive pas les octets tels quels' };
+    } finally {
+      try { await loggerDelete(c, probe); } catch (_) {}
+    }
+  }
+
+  async function playerConnect() {
+    const c = restBuildClient();
+    // quick auth sanity: any authorized call fails the same way if creds are bad
+    const res = await c.request('/api/system/attributes', 'GET');
+    if (res.status !== 200) throw new Error('authentification echouee (HTTP ' + res.status + ')');
+    return c;
+  }
+
+  async function loadFromPlayer() {
+    try {
+      playerSay('Connexion au player ...');
+      const c = await playerConnect();
+      playerSay('Recherche de scheduler.tm2 dans le player ...');
+      const ids = await loggerListIds(c);
+      if (ids === null) {
+        playerSay('❌ Le domaine Logger ne répond pas (GET /api/logs refusé). Déployer via FTP depuis un PC.');
+        return;
+      }
+      const listedHit = (ids || []).map(String).filter(x => /scheduler\.tm2/i.test(x))[0];
+      const hit = listedHit ? { id: listedHit, size: await loggerStat(c, listedHit) }
+                            : await loggerFind(c);
+      if (!hit) {
+        playerSay('❌ Fichier scheduler.tm2 introuvable via REST (candidats testés: ' + PLAYER_CANDIDATES.join(', ') +
+                  '). Import depuis un fichier .tm2 local, ou déploiement FTP.');
+        return;
+      }
+      playerSay('Lecture de ' + hit.id + ' (' + hit.size + ' octets) ...');
+      const buf = await loggerReadAll(c, hit.id, hit.size, (o, s) => playerSay('Lecture ... ' + o + '/' + s + ' octets'));
+      model = TM2.parse(buf);
+      if (!model.days) model.days = [];
+      if (!model.dates) model.dates = {};
+      saveLocalQuiet(false);
+      renderDays(); renderCal(); renderLegend(); renderPending();
+      localStorage.setItem('vp-logger-id', hit.id);
+      playerSay('✅ ' + hit.id + ' chargé : ' + model.ndays + ' jour(s) type, ' + model.nevents +
+                ' événement(s), ' + Object.keys(model.dates).length + ' date(s).');
+    } catch (e) {
+      playerSay('❌ ' + e.message);
+    }
+  }
+
+  async function deployToPlayer() {
+    if (!confirm('Le planning du player sera REMPLACÉ par celui de l\'éditeur. Continuer ?')) return;
+    try {
+      playerSay('Connexion au player ...');
+      const c = await playerConnect();
+      playerSay('Test écriture binaire (probe) ...');
+      const bin = await loggerBinaryOk(c);
+      if (!bin.ok) {
+        playerSay('❌ Écriture REST non utilisable: ' + bin.why + ' → déploiement FTP depuis un PC.');
+        return;
+      }
+      const ids = await loggerListIds(c);
+      if (ids === null) { playerSay('❌ Domaine Logger absent.'); return; }
+      const hit = await loggerFind(c);
+      const targetId = localStorage.getItem('vp-logger-id') || (hit ? hit.id : 'scheduler.tm2');
+
+      // keep a copy of the current remote file before overwriting it
+      let backupNote = '';
+      if (hit && hit.id === targetId) {
+        try {
+          const cur = await loggerReadAll(c, hit.id, hit.size);
+          downloadBytes(cur, 'scheduler.tm2.backup-' + new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19));
+          backupNote = ' (ancien fichier ' + hit.size + ' o téléchargé)';
+        } catch (_) { backupNote = ' (sauvegarde impossible, fichier remplacé)'; }
+      }
+
+      model.hdr.moddate = nowStamp();
+      const enc = TM2.encode(model);
+      playerSay('Écriture de ' + enc.length + ' octets dans ' + targetId + ' ...');
+      await loggerDelete(c, targetId);
+      await loggerAppend(c, targetId, enc);
+      const size = await loggerStat(c, targetId);
+      if (size !== enc.length) throw new Error('taille après écriture: ' + size + ' au lieu de ' + enc.length);
+      playerSay('✅ Deployé: ' + targetId + ' (' + enc.length + ' octets)' + backupNote +
+                '. Le firmware relit le fichier à la minute suivante.');
+    } catch (e) {
+      playerSay('❌ ' + e.message);
+    }
+  }
+
+  async function loggerProbe() {
+    try {
+      playerSay('Connexion au player ...');
+      const c = await playerConnect();
+      const ids = await loggerListIds(c);
+      playerSay('Domaine Logger: ' + (ids ? ids.length + ' fichier(s): ' + ids.slice(0, 6).join(', ') : 'absent'));
+      const bin = await loggerBinaryOk(c);
+      const hit = ids ? await loggerFind(c) : null;
+      playerSay((ids ? '✅ Logger present' : '❌ Logger absent') + ' ; écriture binaire: ' +
+                (bin.ok ? 'OK' : 'NON (' + bin.why + ')') + ' ; scheduler.tm2 vu: ' +
+                (hit ? hit.id + ' (' + hit.size + ' o)' : 'non'));
+    } catch (e) {
+      playerSay('❌ ' + e.message);
+    }
+  }
+
+  function downloadBytes(u8, name) {
+    const blob = new Blob([u8], { type: 'application/octet-stream' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
   }
 
   // ------------------------------------------------------------------ helpers

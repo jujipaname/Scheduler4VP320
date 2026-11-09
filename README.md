@@ -27,7 +27,7 @@ VP320 / VP330
 | Fichier | Rôle |
 |---|---|
 | `index.html` | **OSD embarqué** — éditeur « jours types » + « calendrier » navigable à la télécommande IR (flèches + OK, codes NEC), auto-fermeture 60 s, sauvegarde mémorisée puis rechargée à l'ouverture |
-| `remote.html` | **Télécommande web** — 5 onglets : Jours types, Calendrier, Moteur, Télécommande (REST Digest), Fichier (génération/import/export du `.tm2`) |
+| `remote.html` | **Télécommande web** — 5 onglets : Jours types, Calendrier, Moteur, Télécommande (REST Digest), Fichier (génération/import/export du `.tm2`, **chargement/déploiement du planning du player via REST Logger**) |
 | `tm2.js` | Parseur/encodeur du format binaire `scheduler.tm2` (reverse du logiciel Scheduler 2.3.3.0, validé octet par octet) |
 | `engine.js` | Moteur de secours réseau : déclenchement à la minute des commandes via la REST API (`resolveDay`, `eventsFor`, `toREST`, `createDaemon`) |
 | `api.js` | Client REST officiel avec **Digest auth** en JS pur (MD5 RFC 1321, RFC 2617) |
@@ -37,6 +37,7 @@ VP320 / VP330
 | `validate-player.js` | Validation **live** : auth Digest, **version firmware** (`/api/system/attributes`), stockages, upload FTP avec **sauvegarde de l'ancien fichier** **(requis : player joignable)** |
 | `clock-test.bat` | Lanceur Windows du test d'horloge (se place dans le dossier du projet, `pause` à la fin) |
 | `clock-test.js` | **Test d'horloge** : programme STOP puis `PLAY FOLDER 000` à +2/+3 min sur l'horloge **du player**, uploade et observe `/api/system/state/playbackengine` → prouve que le firmware exécute le planning |
+| `logger-test.js` | **Sonde REST Logger** (`/api/logs`) : détermine si le player permet de **lire et écrire** des fichiers par REST → décide si l'éditeur web peut déployer sans FTP |
 | `run-tests.bat` / `run-tests.ps1` | Orchestrateur Windows — cf. `procedureTest.md`. Live : `run-tests.bat -Host <ip> -User admin -Pass <mdp> [-Upload -FtpUser <u> -FtpPass <p> -Tm2 fichier.tm2]` |
 
 ## Modèle de planning (format officiel)
@@ -68,6 +69,24 @@ node test-runner.js
 ```
 
 Détails et interprétation : **`procedureTest.md`**. Bilan hors-ligne attendu : 13/13 PASS.
+
+## Accès fichiers par REST : le domaine Logger
+
+L'API REST officielle n'a pas de gestionnaire de fichiers, **sauf** le domaine Logger
+(`/api/logs`) : lister, `stat`, lire (`/read`, base64), écrire (**append**, JSON), supprimer.
+Deux questions décident si l'éditeur web peut **lire le planning du player** et
+éventuellement **le déployer sans FTP** : les identifiants acceptent-ils des chemins
+(`SYSTEM/scheduler.tm2`), et l'append préserve-t-il les octets binaires (`≥ 0x80`) ?
+
+`logger-test.js` répond à ces questions en lecture seule sur le player :
+`node logger-test.js -Host 192.168.8.20 -User admin -Pass <mdp>`
+
+- `remote.html` onglet **Fichier** contient déjà : « ⬇ Charger depuis le player »
+  (lecture + parse du `.tm2` du player), « ⬆ Déployer vers le player » (écriture REST
+  avec sonde binaire + sauvegarde locale du fichier remplacé) et « 🔎 Tester l'accès
+  fichiers ». Si le domaine Logger est absent ou corrompt les octets, l'éditeur le dit
+  et propose le chemin FTP.
+- Vider le domaine Logger en mémoire n'a lieu QUE sur le fichier sonde `s4vp-probe.tmp`.
 
 ### Prouver que le firmware applique le planning (`clock-test.js`)
 
