@@ -7,7 +7,7 @@
 # Usage (PowerShell):
 #   .\run-tests.ps1 -Host 192.168.1.100 -User admin -Pass yourPassword [-Upload]
 #                    [-HttpPort 80] [-FtpPort 21] [-FtpUser ...] [-FtpPass ...]
-#                    [-Tm2 fichier.tm2] [-Mkdir] [-NoBackup]
+#                    [-Tm2 fichier.tm2] [-RemoteDir "/SYSTEM"] [-Mkdir] [-NoBackup]
 #
 # Without -Host: only the offline part is executed.
 #
@@ -32,6 +32,7 @@ param(
     [string]$FtpUser = "",
     [string]$FtpPass = "",
     [string]$Tm2 = "",
+    [string]$RemoteDir = "",
     [switch]$Mkdir,
     [switch]$NoBackup
 )
@@ -131,6 +132,7 @@ if ($PlayerHost) {
     if ($FtpUser) { $vpArgs += "--ftp-user=$FtpUser" }
     if ($FtpPass) { $vpArgs += "--ftp-pass=$FtpPass" }
     if ($Tm2) { $vpArgs += "--file=$Tm2" }
+    if ($RemoteDir) { $vpArgs += "--dir=$RemoteDir" }
     if ($Mkdir) { $vpArgs += "--mkdir" }
     if ($NoBackup) { $vpArgs += "--no-backup" }
 

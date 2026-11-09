@@ -25,7 +25,8 @@
  *   node validate-player.js --host=192.168.1.100 [--user=admin] [--pass=admin]
  *                            [--http-port=80] [--ftp-port=21]
  *                            [--ftp-user=...] [--ftp-pass=...]
- *                            [--upload] [--file=scheduler2.tm2] [--mkdir] [--no-backup]
+ *                            [--upload] [--file=scheduler2.tm2] [--dir=/SYSTEM]
+ *                            [--mkdir] [--no-backup]
  *                            [--out=report-live.json] [--snapshot=player-state.json]
  *
  * Environment: FTP_DEBUG=1 traces every FTP exchange.
@@ -64,6 +65,7 @@ const FTP_PORT = Number(arg('ftp-port', 21));
 const FTP_USER = arg('ftp-user', '') || USER;
 const FTP_PASS = arg('ftp-pass', '') || PASS;
 const TM2_FILE = arg('file', 'scheduler2.tm2');
+const REMOTE_DIR = arg('dir', '/SYSTEM');
 const DO_UPLOAD = flag('upload');
 const DO_BACKUP = !flag('no-backup');
 const DO_MKDIR = flag('mkdir');
@@ -263,48 +265,62 @@ async function ftpList(session, timeoutMs) {
   return { entries: parseListNames(Buffer.concat(chunks).toString('utf8')), reply: last.text };
 }
 
-// Enter remoteDir, adapting to the server: absolute path, relative path, name
-// found in the root listing, or (with --mkdir) a freshly created folder.
+// Enter remoteDir, adapting to the server layout. The FTP root is not always
+// the storage root: on a VP320 the account may see e.g.
+//   /Internal shared storage/SYSTEM
+// so we try the given path, relative forms, the storage names reported by the
+// REST API, and finally one level down from the root listing.
 async function ftpResolveDir(session, wanted, opts, timeoutMs) {
   const tried = [];
   const base = wanted.replace(/^\/+/, '');
-  const candidates = [];
-  for (const c of [wanted, base, './' + base]) {
-    if (c && candidates.indexOf(c) === -1) candidates.push(c);
-  }
+  const push = (arr, d) => { if (d && arr.indexOf(d) === -1) arr.push(d); };
 
-  for (const dir of candidates) {
+  async function tryCwd(dir) {
     const r = await session.cmd('CWD ' + dir, null, 'CWD');
     tried.push({ dir, reply: r.text });
-    if (/^2/.test(r.code)) return { dir, tried, entries: [] };
+    return /^2/.test(r.code);
   }
 
-  // Still failing: inspect the FTP root, it usually explains why.
+  const cands = [];
+  push(cands, wanted);
+  push(cands, base);
+  push(cands, './' + base);
+  for (const hint of (opts.dirHints || [])) {
+    push(cands, '/' + hint + '/' + base);
+    push(cands, hint + '/' + base);
+  }
+  for (const dir of cands) {
+    if (await tryCwd(dir)) return { dir, tried, entries: [] };
+  }
+
+  // Still failing: inspect the FTP root and try <entry>/SYSTEM for each entry.
   const list = await ftpList(session, timeoutMs);
   const entries = list.entries;
-  const hit = entries.filter(e => e.replace(/\/$/, '').toLowerCase() === base.toLowerCase())[0];
-  if (hit) {
-    const r = await session.cmd('CWD ' + hit, null, 'CWD');
-    tried.push({ dir: hit, reply: r.text });
-    if (/^2/.test(r.code)) return { dir: hit, tried, entries };
+  const exact = entries.filter(e => e.replace(/\/$/, '').toLowerCase() === base.toLowerCase())[0];
+  if (exact && await tryCwd(exact)) return { dir: exact, tried, entries };
+  for (const e of entries.slice(0, 10)) {
+    const dir = e.replace(/\/$/, '');
+    if (await tryCwd(dir + '/' + base)) return { dir: dir + '/' + base, tried, entries };
   }
 
   if (opts.mkdir) {
-    const mk = await session.cmd('MKD ' + base, null, 'MKD');
-    tried.push({ dir: 'MKD ' + base, reply: mk.text });
-    if (/^2/.test(mk.code) || /^550/.test(mk.code)) {
-      const c = await session.cmd('CWD ' + base, null, 'CWD');
-      tried.push({ dir: base, reply: c.text });
-      if (/^2/.test(c.code)) return { dir: base, tried, entries };
+    for (const parent of [''].concat(entries.slice(0, 10))) {
+      const target = parent ? parent.replace(/\/$/, '') + '/' + base : base;
+      const mk = await session.cmd('MKD ' + target, null, 'MKD');
+      tried.push({ dir: 'MKD ' + target, reply: mk.text });
+      if (/^2/.test(mk.code) || /^550/.test(mk.code)) {
+        if (await tryCwd(target)) return { dir: target, tried, entries };
+      }
     }
   }
 
   const lastReply = tried.length ? tried[tried.length - 1].reply : 'aucune reponse';
+  const shownTried = tried.slice(0, 6).map(t => t.dir).join(', ');
   let msg = 'CWD ' + wanted + ' impossible (' + lastReply + ')';
-  if (entries.length) msg += ' ; racine FTP = [' + entries.slice(0, 20).join(', ') + ']';
+  msg += ' ; essais = [' + shownTried + ']';
+  if (entries.length) msg += ' ; racine FTP = [' + entries.slice(0, 10).join(', ') + ']';
   else msg += ' ; racine FTP vide ou LIST non supporte par le serveur';
-  msg += ' -> ' + wanted + ' absent, ou hors de la racine du compte FTP';
-  if (!opts.mkdir) msg += ' (relancer avec -Mkdir pour le creer)';
+  msg += ' -> indiquer le bon chemin avec -RemoteDir';
   const err = new Error(msg);
   err.ftpTried = tried;
   err.ftpEntries = entries;
@@ -447,6 +463,7 @@ async function run() {
 
   // 5. storages (informational): where /SYSTEM lives
   let firstStorage = null;
+  let storageNames = [];
   try {
     const r = await withTimeout(client.request('/api/storages', 'GET'), T, 'storages');
     let body = null;
@@ -458,6 +475,9 @@ async function run() {
       const label = (s.type ? s.type + ':' : '') + (s.name || s.id || '?');
       return label;
     });
+    if (Array.isArray(list)) {
+      storageNames = list.map(s => s.name).filter(Boolean);
+    }
     add('GET /api/storages', r.status === 200, 'HTTP ' + r.status + (names.length ? ' - ' + names.join(', ') : ''));
   } catch (e) {
     add('GET /api/storages', false, 'exception: ' + e.message);
@@ -494,8 +514,8 @@ async function run() {
       const model = TM2.parse(fs.readFileSync(TM2_FILE));
       const data = Buffer.from(TM2.encode(model));
       const info = await withTimeout(
-        ftpPut(HOST, FTP_PORT, FTP_USER, FTP_PASS, '/SYSTEM', ftpTarget, data,
-               { backup: DO_BACKUP, mkdir: DO_MKDIR }),
+        ftpPut(HOST, FTP_PORT, FTP_USER, FTP_PASS, REMOTE_DIR, ftpTarget, data,
+               { backup: DO_BACKUP, mkdir: DO_MKDIR, dirHints: storageNames }),
         45000, 'upload FTP complet');
       snapshot.ftp = { banner: info.banner, dir: info.dir, root: info.rootEntries };
       let detail = 'envoye ' + data.length + ' octets (' + TM2_FILE + ')';
@@ -513,7 +533,10 @@ async function run() {
       } else {
         detail += ' ; aucun ' + ftpTarget + ' existant a sauvegarder';
       }
-      add('FTP upload /SYSTEM/' + ftpTarget, true, detail);
+      if (info.dir && info.dir.replace(/^\/+/, '') !== REMOTE_DIR.replace(/^\/+/, '')) {
+        detail += ' ; dossier distant = ' + info.dir;
+      }
+      add('FTP upload ' + (info.dir || REMOTE_DIR) + '/' + ftpTarget, true, detail);
     } catch (e) {
       add('FTP upload /SYSTEM/' + ftpTarget, false, 'exception: ' + e.message);
     }

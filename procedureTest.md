@@ -94,9 +94,21 @@ serveur FTP refuse le couple utilisateur/mot de passe : ce n'est **pas** un prob
 d'API REST (le Digest, lui, est validé juste avant). Sur un VP320, le compte FTP se
 lit dans le menu FTP du player (ex. utilisateur `idalftp` et un mot de passe dédié).
 
-Le script résout tout seul le dossier distant : chemin absolu (`/SYSTEM`), puis relatif
-(`SYSTEM`), puis nom trouvé dans le listing racine (insensible à la casse). Si le dossier
-n'existe pas, `-Mkdir` le crée avant l'envoi.
+Le script résout tout seul le dossier distant. Sur un VP320, la racine FTP **contient les
+stockages** : le chemin réel est par exemple `/Internal shared storage/SYSTEM`, et non
+`/SYSTEM`. Ordre des essais :
+
+1. le chemin demandé (`/SYSTEM`) et sa forme relative (`SYSTEM`) ;
+2. `/<nom du stockage>/SYSTEM` pour chaque stockage renvoyé par `GET /api/storages`
+   (c'est ce qui résout le cas VP320) ;
+3. `LIST` de la racine puis `<entrée>/SYSTEM` pour chaque entrée (insensible à la casse) ;
+4. avec `-Mkdir`, création du dossier manquant.
+
+Pour forcer un chemin, utiliser `-RemoteDir` :
+
+```powershell
+... -Upload -FtpUser idalftp -FtpPass "0000" -RemoteDir "/Internal shared storage/SYSTEM"
+```
 
 Par défaut le fichier envoyé est `scheduler2.tm2` (jeu de test). Pour déployer **ton**
 planning exporté depuis `remote.html`, utilise `-Tm2` :
