@@ -34,7 +34,7 @@ VP320 / VP330
 | `deploy.js` | Déploiement FTP du `scheduler.tm2` vers `/SYSTEM/` (`npm install` puis `node deploy.js <model.json> <ip> <user> <pass>`) |
 | `test-runner.js` | Suite hors-ligne (roundtrip TM2, moteur, MD5/Digest) |
 | `validate-player.js` | Validation **live** : auth Digest, **version firmware** (`/api/system/attributes`), stockages, upload FTP avec **sauvegarde de l'ancien fichier** **(requis : player joignable)** |
-| `run-tests.bat` / `run-tests.ps1` | Orchestrateur Windows — cf. `procedureTest.md`. Live : `run-tests.bat -Host <ip> -User admin -Pass <mdp> [-Upload]` |
+| `run-tests.bat` / `run-tests.ps1` | Orchestrateur Windows — cf. `procedureTest.md`. Live : `run-tests.bat -Host <ip> -User admin -Pass <mdp> [-Upload -FtpUser <u> -FtpPass <p> -Tm2 fichier.tm2]` |
 
 ## Modèle de planning (format officiel)
 

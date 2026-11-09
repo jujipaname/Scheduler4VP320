@@ -6,7 +6,8 @@
 #
 # Usage (PowerShell):
 #   .\run-tests.ps1 -Host 192.168.1.100 -User admin -Pass yourPassword [-Upload]
-#                    [-HttpPort 80] [-FtpPort 21] [-FtpUser ...] [-FtpPass ...] [-NoBackup]
+#                    [-HttpPort 80] [-FtpPort 21] [-FtpUser ...] [-FtpPass ...]
+#                    [-Tm2 fichier.tm2] [-NoBackup]
 #
 # Without -Host: only the offline part is executed.
 #
@@ -30,6 +31,7 @@ param(
     [int]$FtpPort = 21,
     [string]$FtpUser = "",
     [string]$FtpPass = "",
+    [string]$Tm2 = "",
     [switch]$NoBackup
 )
 
@@ -127,6 +129,7 @@ if ($PlayerHost) {
     if ($Upload) { $vpArgs += "--upload=1" }
     if ($FtpUser) { $vpArgs += "--ftp-user=$FtpUser" }
     if ($FtpPass) { $vpArgs += "--ftp-pass=$FtpPass" }
+    if ($Tm2) { $vpArgs += "--file=$Tm2" }
     if ($NoBackup) { $vpArgs += "--no-backup" }
 
     & node validate-player.js $vpArgs

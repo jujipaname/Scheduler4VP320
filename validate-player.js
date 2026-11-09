@@ -12,8 +12,9 @@
  *   4. GET  /api/system/state      (informational)
  *   5. GET  /api/storages          (informational: mounted storages)
  *   6. Optional FTP (-upload): download the existing /SYSTEM/scheduler.tm2 as a
- *      backup, then upload the generated one. Separate FTP credentials can be
- *      given with --ftp-user / --ftp-pass (the FTP account may differ from the
+ *      backup, then upload the generated one. --file selects the local .tm2 to
+ *      send (default: scheduler2.tm2). Separate FTP credentials can be given
+ *      with --ftp-user / --ftp-pass (the FTP account may differ from the
  *      REST/Digest account).
  *   7. Always writes a full JSON snapshot (player-state.json) so firmware,
  *      storages and FTP banner can be inspected offline.
@@ -22,7 +23,7 @@
  *   node validate-player.js --host=192.168.1.100 [--user=admin] [--pass=admin]
  *                            [--http-port=80] [--ftp-port=21]
  *                            [--ftp-user=...] [--ftp-pass=...]
- *                            [--upload] [--no-backup]
+ *                            [--upload] [--file=scheduler2.tm2] [--no-backup]
  *                            [--out=report-live.json] [--snapshot=player-state.json]
  *
  * Environment: FTP_DEBUG=1 traces every FTP exchange.
@@ -60,6 +61,7 @@ const PASS = arg('pass', 'admin');
 const FTP_PORT = Number(arg('ftp-port', 21));
 const FTP_USER = arg('ftp-user', '') || USER;
 const FTP_PASS = arg('ftp-pass', '') || PASS;
+const TM2_FILE = arg('file', 'scheduler2.tm2');
 const DO_UPLOAD = flag('upload');
 const DO_BACKUP = !flag('no-backup');
 const OUT = arg('out', 'report-live.json');
@@ -396,13 +398,14 @@ async function run() {
   const ftpTarget = 'scheduler.tm2';
   if (DO_UPLOAD) {
     try {
-      const model = TM2.parse(fs.readFileSync('scheduler2.tm2'));
+      if (!fs.existsSync(TM2_FILE)) throw new Error('fichier .tm2 introuvable : ' + TM2_FILE);
+      const model = TM2.parse(fs.readFileSync(TM2_FILE));
       const data = Buffer.from(TM2.encode(model));
       const info = await withTimeout(
         ftpPut(HOST, FTP_PORT, FTP_USER, FTP_PASS, '/SYSTEM', ftpTarget, data, { backup: DO_BACKUP }),
         45000, 'upload FTP complet');
       snapshot.ftp = { banner: info.banner };
-      let detail = 'envoye ' + data.length + ' octets';
+      let detail = 'envoye ' + data.length + ' octets (' + TM2_FILE + ')';
       if (FTP_USER !== USER) detail += ' (compte FTP: ' + FTP_USER + ')';
       if (info.backup) {
         const backupName = ftpTarget + '.backup';

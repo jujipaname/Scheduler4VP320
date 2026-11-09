@@ -91,7 +91,17 @@ powershell -ExecutionPolicy Bypass -File .\run-tests.ps1 `
 
 Une réponse `530 Authentication failed` (visible dans le rapport) signifie que le
 serveur FTP refuse le couple utilisateur/mot de passe : ce n'est **pas** un problème
-d'API REST (le Digest, lui, est validé juste avant).
+d'API REST (le Digest, lui, est validé juste avant). Sur un VP320, le compte FTP se
+lit dans le menu FTP du player (ex. utilisateur `idalftp` et un mot de passe dédié).
+
+Par défaut le fichier envoyé est `scheduler2.tm2` (jeu de test). Pour déployer **ton**
+planning exporté depuis `remote.html`, utilise `-Tm2` :
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\run-tests.ps1 `
+    -Host 192.168.1.100 -User admin -Pass "MotDePasseWeb" `
+    -Upload -FtpUser idalftp -FtpPass "MotDePasseFtp" -Tm2 "C:\chemin\scheduler.tm2"
+```
 
 Avant d'écrire, le script **télécharge l'ancien `/SYSTEM/scheduler.tm2`** dans
 `scheduler.tm2.backup` (sauvegarde automatique). `-NoBackup` désactive ce filet.
