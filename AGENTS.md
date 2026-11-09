@@ -208,11 +208,18 @@ Le repo contient **deux pages web statiques** + une config :
        (onglet Fichier) implémente « Charger depuis le player », « Déployer vers le player »
        (avec sonde d'intégrité binaire + sauvegarde locale du fichier remplacé) et « Tester
        l'accès fichiers » ; l'OST `index.html` garde sa persistance locale.
-       → **Validation d'exécution sur player réel : `logger-test.bat`** (sonde hors
-         flux, ne modifie que `s4vp-probe.tmp`).. Deux inconnues matérielles :
-         (1) les identifiants Logger acceptent-ils des chemins (`SYSTEM/scheduler.tm2`) ;
-         (2) l'append préserve-t-il les octets binaires (≥ 0x80) -> si non, le déploiement
-             web est refusé par l'éditeur et le chemin FTP reste obligatoire.
+       → **Mesuré sur le VP320 réel (09/11/2026, `logger-test.json`)** : le domaine
+         Logger existe (GET/POST/DELETE 200) mais se comporte comme un **journal texte** :
+         chaque POST appende la chaîne **+ un `\n`**, les octets ≥ 0x80 sont ré-encodés
+         (corruption UTF-8), la liste est vide et les identifiants **refusent les chemins**
+         (404 sur `SYSTEM/scheduler.tm2` et tous ses dérivés). Le web server ne sert pas
+         `/SYSTEM` en HTTP statique. **Conclusion : le déploiement REST est impossible,
+         le FTP reste la seule voie** — `remote.html` refuse la voie REST de lui-même
+         (aucun code mort) et `deploy.bat` couvre le déploiement depuis le PC.
+       → **`deploy.bat` / `deploy-scheduler.js`** : déploiement FTP en une commande
+         depuis le `.tm2` téléchargé de l'éditeur (parse TM2 + garde firmware + chemin
+         résolu + sauvegarde de l'ancien). Testé hors mock : 82 708 octets déposés,
+         fichier invalide refusé (exit 1).
 
 ### Phase 3 — Accès réseau & REST (P1)
 
