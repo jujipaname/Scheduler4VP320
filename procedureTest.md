@@ -35,16 +35,24 @@ Copier **l'intégralité** de ce dossier (au minimum) vers un dossier local, par
 `C:\Scheduler4VP320` :
 
 ```
-api.js            (client REST Digest)
-tm2.js            (parseur/encodeur TM2)
-engine.js         (moteur de planning)
-test-runner.js    (suite hors-ligne)
-validate-player.js(validation live)
-run-tests.ps1     (orchestrateur Windows)
-run-tests.bat     (lanceur double-clic)
-scheduler1.tm2    (fichiers de référence)
+api.js             (client REST Digest)
+tm2.js             (parseur/encodeur TM2)
+ftp.js             (client FTP - requis par validate-player.js ET clock-test.js)
+engine.js          (moteur de secours réseau)
+test-runner.js     (suite hors-ligne)
+validate-player.js (validation live)
+clock-test.js      (test d'horloge : le firmware applique-t-il le planning ?)
+clock-test.bat     (lanceur Windows du test d'horloge)
+run-tests.ps1      (orchestrateur Windows)
+run-tests.bat      (lanceur double-clic)
+scheduler1.tm2     (fichiers de référence)
 scheduler2.tm2
 ```
+
+`ftp.js` est **indispensable** : le client FTP y vit depuis qu'il est partagé entre
+`validate-player.js` et `clock-test.js`. Sans lui, l'un ou l'autre s'arrête sur
+`Cannot find module './ftp.js'`. Le kit vérifie maintenant lui-même et affiche la
+liste des fichiers manquants plutôt qu'une stack trace Node.
 
 > **Important :** les fichiers `.js` et `.tm2` doivent rester **dans le même dossier**
 > que `run-tests.bat`, car les scripts se référencent par chemins relatifs.
