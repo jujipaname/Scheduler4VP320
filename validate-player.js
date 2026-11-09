@@ -15,7 +15,9 @@
  *      backup, then upload the generated one. --file selects the local .tm2 to
  *      send (default: scheduler2.tm2). Separate FTP credentials can be given
  *      with --ftp-user / --ftp-pass (the FTP account may differ from the
- *      REST/Digest account).
+ *      REST/Digest account). The remote directory is resolved against the
+ *      account's FTP root (absolute, relative, case-insensitive), and --mkdir
+ *      creates SYSTEM when it does not exist yet.
  *   7. Always writes a full JSON snapshot (player-state.json) so firmware,
  *      storages and FTP banner can be inspected offline.
  *
@@ -23,7 +25,7 @@
  *   node validate-player.js --host=192.168.1.100 [--user=admin] [--pass=admin]
  *                            [--http-port=80] [--ftp-port=21]
  *                            [--ftp-user=...] [--ftp-pass=...]
- *                            [--upload] [--file=scheduler2.tm2] [--no-backup]
+ *                            [--upload] [--file=scheduler2.tm2] [--mkdir] [--no-backup]
  *                            [--out=report-live.json] [--snapshot=player-state.json]
  *
  * Environment: FTP_DEBUG=1 traces every FTP exchange.
@@ -64,6 +66,7 @@ const FTP_PASS = arg('ftp-pass', '') || PASS;
 const TM2_FILE = arg('file', 'scheduler2.tm2');
 const DO_UPLOAD = flag('upload');
 const DO_BACKUP = !flag('no-backup');
+const DO_MKDIR = flag('mkdir');
 const OUT = arg('out', 'report-live.json');
 const SNAPSHOT = arg('snapshot', 'player-state.json');
 const BASE = 'http://' + HOST + (HTTP_PORT === 80 ? '' : ':' + HTTP_PORT);
@@ -224,6 +227,90 @@ function ftpConnect(host, port, timeoutMs) {
   return withTimeout(task, timeoutMs, 'connexion FTP ' + host + ':' + port);
 }
 
+// Parse a LIST payload into directory/file names (UNIX and DOS formats).
+function parseListNames(text) {
+  return String(text || '')
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(l => l && !/^total\s/i.test(l))
+    .map(line => {
+      let m = /^\S+\s+\d+\s+\S+\s+\S+\s+\d+\s+\S+\s+\S+\s+\S+\s+(.+)$/.exec(line);
+      if (m) return m[1].trim();                                  // UNIX
+      m = /^\d{2}-\d{2}-\d{2,4}\s+\S+\s+(?:<DIR>|\d+)\s+(.+)$/i.exec(line);
+      if (m) return m[1].trim();                                  // DOS
+      const parts = line.split(/\s+/);
+      return parts[parts.length - 1];
+    })
+    .filter(n => n && n !== '.' && n !== '..');
+}
+
+async function ftpList(session, timeoutMs) {
+  const dataPort = await session.pasv();
+  const ds = await session.openData(dataPort);
+  session.raw('LIST');
+  const first = await session.reply();
+  if (!/^(125|150)$/.test(first.code)) {
+    ds.destroy();
+    return { entries: [], reply: first.text };
+  }
+  const chunks = [];
+  await withTimeout(new Promise((res, rej) => {
+    ds.on('data', c => chunks.push(Buffer.from(c)));
+    ds.on('end', res);
+    ds.on('error', rej);
+  }), timeoutMs, 'reception de LIST');
+  const last = await session.reply();
+  return { entries: parseListNames(Buffer.concat(chunks).toString('utf8')), reply: last.text };
+}
+
+// Enter remoteDir, adapting to the server: absolute path, relative path, name
+// found in the root listing, or (with --mkdir) a freshly created folder.
+async function ftpResolveDir(session, wanted, opts, timeoutMs) {
+  const tried = [];
+  const base = wanted.replace(/^\/+/, '');
+  const candidates = [];
+  for (const c of [wanted, base, './' + base]) {
+    if (c && candidates.indexOf(c) === -1) candidates.push(c);
+  }
+
+  for (const dir of candidates) {
+    const r = await session.cmd('CWD ' + dir, null, 'CWD');
+    tried.push({ dir, reply: r.text });
+    if (/^2/.test(r.code)) return { dir, tried, entries: [] };
+  }
+
+  // Still failing: inspect the FTP root, it usually explains why.
+  const list = await ftpList(session, timeoutMs);
+  const entries = list.entries;
+  const hit = entries.filter(e => e.replace(/\/$/, '').toLowerCase() === base.toLowerCase())[0];
+  if (hit) {
+    const r = await session.cmd('CWD ' + hit, null, 'CWD');
+    tried.push({ dir: hit, reply: r.text });
+    if (/^2/.test(r.code)) return { dir: hit, tried, entries };
+  }
+
+  if (opts.mkdir) {
+    const mk = await session.cmd('MKD ' + base, null, 'MKD');
+    tried.push({ dir: 'MKD ' + base, reply: mk.text });
+    if (/^2/.test(mk.code) || /^550/.test(mk.code)) {
+      const c = await session.cmd('CWD ' + base, null, 'CWD');
+      tried.push({ dir: base, reply: c.text });
+      if (/^2/.test(c.code)) return { dir: base, tried, entries };
+    }
+  }
+
+  const lastReply = tried.length ? tried[tried.length - 1].reply : 'aucune reponse';
+  let msg = 'CWD ' + wanted + ' impossible (' + lastReply + ')';
+  if (entries.length) msg += ' ; racine FTP = [' + entries.slice(0, 20).join(', ') + ']';
+  else msg += ' ; racine FTP vide ou LIST non supporte par le serveur';
+  msg += ' -> ' + wanted + ' absent, ou hors de la racine du compte FTP';
+  if (!opts.mkdir) msg += ' (relancer avec -Mkdir pour le creer)';
+  const err = new Error(msg);
+  err.ftpTried = tried;
+  err.ftpEntries = entries;
+  throw err;
+}
+
 async function ftpRetr(session, name, timeoutMs) {
   const dataPort = await session.pasv();
   const ds = await session.openData(dataPort);
@@ -231,6 +318,8 @@ async function ftpRetr(session, name, timeoutMs) {
   const first = await session.reply();
   if (!/^(125|150)$/.test(first.code)) {
     ds.destroy();
+    // 550 on RETR simply means "no existing file": nothing to back up.
+    if (/^550/.test(first.code)) return null;
     throw new Error('RETR ' + name + ' : ' + first.text + ftpHint(first.text));
   }
   const chunks = [];
@@ -247,7 +336,7 @@ async function ftpRetr(session, name, timeoutMs) {
 async function ftpPut(host, port, user, pass, remoteDir, name, data, opts) {
   const T = 15000;
   const session = await ftpConnect(host, port, T);
-  const info = { banner: '', backup: null, backupError: '' };
+  const info = { banner: '', dir: '', rootEntries: [], backup: null, backupError: '' };
   try {
     const b = await session.final();
     info.banner = b.text;
@@ -255,7 +344,10 @@ async function ftpPut(host, port, user, pass, remoteDir, name, data, opts) {
     await session.cmd('USER ' + user, /^(331|230)$/, 'USER');
     await session.cmd('PASS ' + pass, /^230$/, 'PASS');
     await session.cmd('TYPE I', /^200$/, 'TYPE I');
-    await session.cmd('CWD ' + remoteDir, /^2/, 'CWD ' + remoteDir);
+
+    const resolved = await ftpResolveDir(session, remoteDir, opts, T);
+    info.dir = resolved.dir;
+    info.rootEntries = resolved.entries;
 
     if (opts.backup) {
       try { info.backup = await ftpRetr(session, name, T); }
@@ -402,9 +494,10 @@ async function run() {
       const model = TM2.parse(fs.readFileSync(TM2_FILE));
       const data = Buffer.from(TM2.encode(model));
       const info = await withTimeout(
-        ftpPut(HOST, FTP_PORT, FTP_USER, FTP_PASS, '/SYSTEM', ftpTarget, data, { backup: DO_BACKUP }),
+        ftpPut(HOST, FTP_PORT, FTP_USER, FTP_PASS, '/SYSTEM', ftpTarget, data,
+               { backup: DO_BACKUP, mkdir: DO_MKDIR }),
         45000, 'upload FTP complet');
-      snapshot.ftp = { banner: info.banner };
+      snapshot.ftp = { banner: info.banner, dir: info.dir, root: info.rootEntries };
       let detail = 'envoye ' + data.length + ' octets (' + TM2_FILE + ')';
       if (FTP_USER !== USER) detail += ' (compte FTP: ' + FTP_USER + ')';
       if (info.backup) {

@@ -94,6 +94,10 @@ serveur FTP refuse le couple utilisateur/mot de passe : ce n'est **pas** un prob
 d'API REST (le Digest, lui, est validé juste avant). Sur un VP320, le compte FTP se
 lit dans le menu FTP du player (ex. utilisateur `idalftp` et un mot de passe dédié).
 
+Le script résout tout seul le dossier distant : chemin absolu (`/SYSTEM`), puis relatif
+(`SYSTEM`), puis nom trouvé dans le listing racine (insensible à la casse). Si le dossier
+n'existe pas, `-Mkdir` le crée avant l'envoi.
+
 Par défaut le fichier envoyé est `scheduler2.tm2` (jeu de test). Pour déployer **ton**
 planning exporté depuis `remote.html`, utilise `-Tm2` :
 
@@ -168,7 +172,7 @@ Un **résultat attendu** est :
 | `Serveur web joignable ... FAIL` | IP incorrecte ou player éteint | Vérifier `ping <ip>` depuis la machine |
 | `FTP upload ... FAIL` | Serveur FTP désactivé ou port non standard | Activer le FTP sur le player, renseigner `-FtpPort` |
 | `FTP upload ... : 530 Authentication failed` | Compte FTP différent du compte REST/Digest | Renseigner `-FtpUser` / `-FtpPass` (ou `anonymous`) ; vérifier le réglage FTP du player |
-| `FTP upload ... : 550` | `/SYSTEM` absent sur le stockage cible | Vérifier le stockage courant (`GET /api/storages/current`) et créer `/SYSTEM` |
+| `FTP upload ... : 550` | `/SYSTEM` absent, ou racine FTP du compte différente de la racine du stockage | Le message affiche désormais **le contenu de la racine FTP** (`racine FTP = [...]`) : si `SYSTEM` y figure, le script le trouve tout seul (chemin relatif / casse). S'il est vraiment absent, ajouter `-Mkdir` pour le créer |
 | `GET /api/system/attributes (firmware) ... FAIL` | Firmware < 1.13.1 | Mettre à jour le player (le scheduler n'est pas pris en charge avant) |
 | PowerShell refuse le script | Politique d'exécution | Utiliser `-ExecutionPolicy Bypass` (déjà fait par le `.bat`) |
 | Erreurs de parsing (`Jeton inattendu « ) »`, `Ã©` dans les messages) | `run-tests.ps1` réenregistré en UTF-8 **sans BOM** ou avec des accents | Le fichier doit rester **ASCII pur + BOM UTF-8** (voir l'en-tête du script) |
