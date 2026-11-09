@@ -208,8 +208,8 @@ Le repo contient **deux pages web statiques** + une config :
        (onglet Fichier) implémente « Charger depuis le player », « Déployer vers le player »
        (avec sonde d'intégrité binaire + sauvegarde locale du fichier remplacé) et « Tester
        l'accès fichiers » ; l'OST `index.html` garde sa persistance locale.
-       → **Validation d'exécution sur player réel : `node logger-test.js`** (sonde hors
-         flux, ne modifie que `s4vp-probe.tmp`). Deux inconnues matérielles :
+       → **Validation d'exécution sur player réel : `logger-test.bat`** (sonde hors
+         flux, ne modifie que `s4vp-probe.tmp`).. Deux inconnues matérielles :
          (1) les identifiants Logger acceptent-ils des chemins (`SYSTEM/scheduler.tm2`) ;
          (2) l'append préserve-t-il les octets binaires (≥ 0x80) -> si non, le déploiement
              web est refusé par l'éditeur et le chemin FTP reste obligatoire.
