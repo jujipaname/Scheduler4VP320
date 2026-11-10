@@ -204,8 +204,8 @@ Le repo contient **deux pages web statiques** + une config :
        le **volume**, absent du format officiel, est stocké à part
        (`localStorage['vp-volumes']`) et appliqué **par le moteur réseau**
        (`engine.js` : `volumeFor`, POST `/api/player/set-volume` après chaque
-       WAKE UP). Calendrier **auto-affecté** à l'ouverture (3 mois couverts, jour
-       de semaine = jour type, sans écraser une affectation manuelle) ; défaut
+       WAKE UP). Calendrier **auto-affecté** à l'ouverture (**année en cours + suivante**,
+       jour de semaine = jour type, sans écraser une affectation manuelle) ; défaut
        Lundi 08:00/19:00. Bandeau de touche : programmes les codes réels à relever.
 - [ ] ⬜ **Navigation IR à valider sur le player (10/11/2026)** : l'utilisateur rapporte
        ◀/▶ fonctionnels mais ▲/▼/OK sans effet sur l'OSD précédent. Sur la feuille
