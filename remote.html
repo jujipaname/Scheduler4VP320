@@ -784,6 +784,11 @@
 
   // ------------------------------------------------------------------ engine (Phase 4)
   let daemon = null;
+  // weekday volumes shared with the OSD (index.html) via localStorage
+  if (window._volumes === undefined) {
+    try { window._volumes = JSON.parse(localStorage.getItem('vp-volumes') || 'null') || [null,null,null,null,null,null,null]; }
+    catch (_) { window._volumes = [null,null,null,null,null,null,null]; }
+  }
   function engineStart() {
     if (!ENGINE) { document.getElementById('engine-status').textContent = '❌ Moteur non chargé.'; return; }
     if (daemon && daemon.isRunning()) return;
@@ -796,6 +801,12 @@
         log.textContent += '→ ' + new Date().toTimeString().slice(0, 8) + ' ' + p + (q ? ' ' + JSON.stringify(q) : '') + '\n';
       }) },
       now: () => new Date(),
+      // per-weekday volume edited by the OSD (index.html); applied by this
+      // daemon right after a WAKE UP (the firmware has no volume command).
+      volumeFor: (day) => {
+        if (!day || !Array.isArray(window._volumes)) return null;
+        return window._volumes[day] === undefined ? null : window._volumes[day];
+      },
       onTick: (t) => { if (t.day === null) return; },
       onEvent: (o) => {
         const ts = new Date().toTimeString().slice(0, 8);

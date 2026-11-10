@@ -75,6 +75,10 @@
     const onEvent = opts.onEvent || (() => {});
     const onTick = opts.onTick || (() => {});
     const onError = opts.onError || ((err) => console.error('engine:', err));
+    // volumeFor(dayIndex) -> number|null. The TM2 format has no volume command,
+    // so a per-day volume is metadata applied by this daemon right after a
+    // WAKE UP of that day via /api/player/set-volume.
+    const volumeFor = opts.volumeFor || null;
 
     function tick() {
       if (!running) return;
@@ -95,6 +99,14 @@
                 () => {},
                 err => onError(err)
               );
+            }
+            // apply the per-day volume after WAKE UP (network engine only)
+            if (volumeFor && ev.code === 0x02 && ev.value === 2) {
+              const vol = volumeFor(day);
+              if (vol !== null && vol !== undefined) {
+                opts.client.cmd('/api/player/set-volume', { volume: vol, relative: false })
+                  .then(() => {}, err => onError(err));
+              }
             }
           });
         } catch (err) {

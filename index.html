@@ -2,100 +2,66 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Waves System VP320 - Scheduler OSD</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Scheduler OSD - Vue semaine</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
-
-    html, body {
-      background: transparent !important;
-      color: #fff;
-      font-family: Arial, Helvetica, sans-serif;
-      overflow: hidden;
-      width: 100vw; height: 100vh;
-    }
-
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+    body { background: #10151c; color: #eef2f7; }
     #osd-overlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      width: 100vw; height: 100vh;
-      background: rgba(0, 0, 0, 0.82);
-      display: flex; justify-content: center; align-items: center;
-      z-index: 9999;
+      background: rgba(8,11,16,0.97);
+      display: flex; align-items: center; justify-content: center;
+      height: 100vh; width: 100vw;
     }
-
     .panel {
-      background: #181b22;
-      border: 3px solid #ff4757;
-      border-radius: 14px;
-      padding: 20px 28px;
-      width: 94%;
-      max-width: 1100px;
-      box-shadow: 0 10px 60px rgba(0,0,0,0.95);
+      background: #1a2029; border: 2px solid #3a4657; border-radius: 14px;
+      padding: 24px 30px; box-shadow: 0 10px 60px rgba(0,0,0,0.95); width: 720px;
     }
-
-    .header {
-      display: flex; justify-content: space-between; align-items: center;
-      border-bottom: 2px solid #2f3542; padding-bottom: 10px; margin-bottom: 12px;
-    }
+    .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; gap: 10px; }
     .header h2 { font-size: 20px; color: #ff4757; }
-    .header .info { font-size: 14px; color: #ced6e0; }
-    #key-debug { background: #2f3542; color: #ffd32a; padding: 3px 8px; border-radius: 4px; font-family: monospace; font-size: 13px; }
+    .info { font-size: 14px; color: #98a2b3; text-align: right; line-height: 1.45; }
+    .info .keydbg { color: #ffd32a; font-family: monospace; }
+    .info .mt { color: #00d2d3; }
 
-    table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
-    th, td { padding: 6px 6px; text-align: center; }
-    th { color: #a4b0be; font-size: 14px; border-bottom: 1px solid #2f3542; padding-bottom: 8px; }
+    .mode-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+    .mode-tab { flex: 1; padding: 10px; border-radius: 8px; border: 2px solid #57606f;
+      background: #242b37; color: #a4b0be; font-size: 16px; font-weight: bold; cursor: pointer; outline: none; }
+    .mode-tab.active { background: #ff4757; border-color: #ffd32a; color: #fff; }
+    .mode-tab.focused, .mode-tab:focus { border: 3px solid #00d2d3; }
 
-    button.nav-cell {
-      display: inline-block;
-      background: #2f3542; border: 2px solid #57606f; color: #fff;
-      padding: 7px 12px; border-radius: 6px;
-      font-size: 15px; font-weight: bold; min-width: 62px;
-      text-align: center; cursor: pointer; outline: none;
+    table.week { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    table.week th { color: #98a2b3; border-bottom: 1px solid #37424f; padding: 6px 4px; font-size: 15px; text-align: center; }
+    table.week td { padding: 2px 4px; text-align: center; }
+    td.day-name { text-align: right; padding-right: 10px; font-size: 17px; font-weight: 600; color: #c8d3e0; }
+    td.day-name.today { color: #2ed573; }
+    button.cell {
+      background: #2a3542; color: #fff; border: 1px solid #46536a; border-radius: 6px;
+      font-size: 18px; font-weight: 600; padding: 6px 0; width: 118px; outline: none;
+      font-variant-numeric: tabular-nums;
     }
-    button.nav-cell.on { background: #10ac84; border-color: #1dd1a1; }
+    button.cell:focus, button.cell.focused { border: 3px solid #00d2d3; box-shadow: 0 0 12px #00d2d3; background: #2d6da3; }
+    button.cell.editing { background: #ffd32a; color: #10151c; border-color: #ffd32a; }
 
-    button.nav-cell:focus, button.nav-cell.focused,
-    button.btn:focus, button.btn.focused {
-      border: 3px solid #00d2d3 !important;
-      box-shadow: 0 0 15px #00d2d3 !important;
-      transform: scale(1.08);
-      background: #3c40c6 !important;
-      color: #fff !important;
-    }
-    button.nav-cell.editing {
-      background: #ff4757 !important;
-      border: 3px solid #ffd32a !important;
-      box-shadow: 0 0 18px #ff4757 !important;
-      transform: scale(1.12);
-    }
-
-    .actions { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #2f3542; padding-top: 12px; }
-    .help { font-size: 14px; color: #a4b0be; }
-    .help b { color: #00d2d3; }
-    .btn-group { display: flex; gap: 14px; }
-    button.btn { padding: 9px 20px; font-size: 16px; font-weight: bold; border-radius: 6px; border: 2px solid transparent; color: #fff; cursor: pointer; outline: none; }
-    .btn-save { background: #10ac84; }
-    .btn-close { background: #576574; }
-
-    .mode-tabs { display: flex; gap: 10px; margin-bottom: 12px; }
-    button.mode-tab { flex: 1; padding: 10px; border-radius: 8px; border: 2px solid #57606f; background: #2f3542; color: #a4b0be; font-size: 16px; font-weight: bold; cursor: pointer; outline: none; }
-    button.mode-tab.active, button.mode-tab.active.focused, button.mode-tab.active:focus { background: #ff4757; border-color: #ffd32a; color: #fff; }
-    button.mode-tab.focused, button.mode-tab:focus { border: 3px solid #00d2d3; box-shadow: 0 0 15px #00d2d3; }
-
-    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 12px; }
-    .cal-head { color: #a4b0be; text-align: center; font-size: 13px; padding: 6px 0; }
-    button.cal-cell {
-      background: #2f3542; border: 2px solid #57606f; color: #a4b0be;
-      border-radius: 6px; text-align: center; padding: 8px 4px; font-size: 14px; cursor: pointer; outline: none;
-    }
-    button.cal-cell.assigned { background: #2a6e46; border-color: #1dd1a1; color: #fff; }
-    button.cal-cell.focused, button.cal-cell:focus { border: 3px solid #00d2d3; box-shadow: 0 0 12px #00d2d3; }
-    .cal-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 16px; color: #ced6e0; }
-    button.cal-nav-btn { padding: 8px 16px; border-radius: 6px; border: 2px solid #57606f; background: #2f3542; color: #fff; cursor: pointer; outline: none; font-size: 16px; }
-    button.cal-nav-btn.focused, button.cal-nav-btn:focus { border: 3px solid #00d2d3; box-shadow: 0 0 12px #00d2d3; }
-
+    .help { color: #98a2b3; font-size: 14px; text-align: center; margin-top: 6px; }
+    .btn-group { text-align: center; margin-top: 12px; display: flex; justify-content: center; gap: 12px; }
+    .btn { padding: 10px 22px; font-size: 16px; border-radius: 8px; border: none; cursor: pointer; outline: none; font-weight: bold; }
+    .btn-save { background: #2ed573; color: #0d1117; }
+    .btn-close { background: #6c7687; color: #fff; }
+    .btn:focus { border: 3px solid #ffd32a; }
     .hidden { display: none; }
-    .status-line { font-size: 14px; color: #ced6e0; margin-bottom: 8px; }
-    .status-line b { color: #00d2d3; }
+
+    .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .cal-nav span { font-size: 18px; font-weight: 700; }
+    .cal-nav button { padding: 8px 22px; font-size: 18px; border-radius: 6px; border: 2px solid #57606f;
+      background: #2a3542; color: #fff; cursor: pointer; outline: none; }
+    .cal-nav button:focus, .cal-nav button.focused { border: 3px solid #00d2d3; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+    .cal-head { text-align: center; color: #98a2b3; font-size: 14px; font-weight: bold; }
+    .cal-cell { background: #232a35; color: #dfe6ee; border: 1px solid #3a4657; border-radius: 6px;
+      padding: 8px 0; font-size: 15px; cursor: pointer; outline: none; }
+    .cal-cell.assigned { background: #274d68; border-color: #00d2d3; color: #fff; font-weight: bold; }
+    .cal-cell:focus, .cal-cell.selected { border: 3px solid #ffd32a; box-shadow: 0 0 10px #ffd32a; color: #fff; }
+    .attr-line { text-align: center; color: #98a2b3; font-size: 14px; margin: 8px 0; }
+    .attr-line b { color: #00d2d3; }
   </style>
 </head>
 <body tabindex="0">
@@ -103,371 +69,400 @@
 <div id="osd-overlay">
   <div class="panel">
     <div class="header">
-      <h2>📅 SCHEDULER (scheduler.tm2)</h2>
+      <h2>📅 PLANNING HEBDO</h2>
       <div class="info">
-        <span id="key-debug">Touche : attente...</span> &nbsp;|&nbsp;
-        Heure : <b id="clock" style="color:#00d2d3">--:--:--</b> &nbsp;|&nbsp;
-        Auto-fermeture : <b id="timer-sec" style="color:#ff4757">60</b>s
+        <span class="keydbg" id="dbg-keys">Touche : ...</span><br>
+        Heure : <span class="mt" id="clock">--:--:--</span> — fermeture dans <b id="timer-sec">60</b> s
       </div>
     </div>
 
     <div class="mode-tabs">
-      <button id="tab-days" class="mode-tab active" tabindex="1" onclick="setMode('days')">Jours types</button>
+      <button id="tab-week" class="mode-tab active" tabindex="1" onclick="setMode('week')">Semaine</button>
       <button id="tab-cal" class="mode-tab" tabindex="2" onclick="setMode('cal')">Calendrier</button>
     </div>
 
-    <!-- MODE JOURS TYPES -->
-    <div id="view-days">
-      <div class="status-line"><b>Jour type :</b> <span id="cur-day-info"></span></div>
-      <table>
-        <thead><tr><th>Jour</th><th>Heure</th><th>Commande</th><th>Valeur</th></tr></thead>
-        <tbody id="grid-body"></tbody>
+    <!-- ============ VUE SEMAINE ============ -->
+    <div id="view-week">
+      <table class="week">
+        <thead>
+          <tr><th style="width:120px"></th><th>Allumage</th><th>Extinction</th><th>Volume</th></tr>
+        </thead>
+        <tbody id="week-body"></tbody>
       </table>
-      <div class="actions">
-        <div class="help"><b>◀ ▶</b> : Jour/colonne &nbsp;|&nbsp; <b>▲ ▼</b> : valeur &nbsp;|&nbsp; <b>OK</b> : modifier</div>
-        <div class="btn-group">
-          <button id="btn-save" class="btn btn-save" tabindex="100" onclick="saveAndClose()">💾 Enregistrer</button>
-          <button id="btn-close" class="btn btn-close" tabindex="101" onclick="closeOSD()">✖ Fermer</button>
-        </div>
+      <div class="help">
+        ◀ ▶ : colonne &nbsp;|&nbsp; ▲ ▼ : jour &nbsp;|&nbsp; OK : éditer la cellule &nbsp;|&nbsp;
+        en édition : ▲ ▼ = ±5 min &nbsp;|&nbsp; — = pas d&#39;événement
       </div>
+      <div class="attr-line">Le volume est appliqué par le moteur réseau (l&#39;API du player ne programme pas le volume).</div>
     </div>
 
-    <!-- MODE CALENDRIER -->
+    <!-- ============ CALENDRIER ============ -->
     <div id="view-cal" class="hidden">
       <div class="cal-nav">
-        <button id="cal-prev" class="cal-nav-btn" onclick="calMove(-1)">◀</button>
-        <span id="cal-title" style="font-size:18px;font-weight:bold"></span>
-        <button id="cal-next" class="cal-nav-btn" onclick="calMove(1)">▶</button>
+        <button id="cal-prev" tabindex="30" onclick="calMove(-1)">◀ Mois</button>
+        <span id="cal-title"></span>
+        <button id="cal-next" tabindex="31" onclick="calMove(1)">Mois ▶</button>
       </div>
-      <div class="cal-grid" id="cal-grid"></div>
-      <div class="status-line">
-        Affecter au jour type : <b id="cal-assign-info"></b>
-        &nbsp;|&nbsp; <b>OK</b> sur une date : affecte | <b>▼</b> change le jour affecté
+      <div class="attr-line">
+        Jour type : <b id="cal-assign-info"></b> — ◀ ▶ change la date, ▲ ▼ change le jour type, OK affecte / enlève
       </div>
-      <div class="actions">
-        <div class="help"><b>◀ ▶</b> : date &nbsp;|&nbsp; <b>▲ ▼</b> : jour affecté &nbsp;|&nbsp; <b>OK</b> : affecter</div>
-        <div class="btn-group">
-          <button id="btn-save2" class="btn btn-save" tabindex="100" onclick="saveAndClose()">💾 Enregistrer</button>
-          <button id="btn-close2" class="btn btn-close" tabindex="101" onclick="closeOSD()">✖ Fermer</button>
-        </div>
-      </div>
+      <div id="cal-grid" class="cal-grid"></div>
+      <div class="attr-line">Automatique : les 3 prochains mois sont déjà affectés à l&#39;ouverture (jour de semaine = jour type).</div>
+    </div>
+
+    <div class="btn-group">
+      <button id="btn-save" class="btn btn-save" tabindex="100" onclick="saveAndClose()">💾 Enregistrer</button>
+      <button id="btn-close" class="btn btn-close" tabindex="101" onclick="closeOSD()">✖ Fermer</button>
     </div>
   </div>
 </div>
 
 <script src="tm2.js"></script>
 <script>
-  // ------------------------------------------------------------------ state
-  const COMMAND_LIST = [
-    { code: 0x00, label: 'PLAY FOLDER' },
-    { code: 0x01, label: 'PLAYBACK' },
-    { code: 0x02, label: 'STANDBY/WAKEUP' },
-    { code: 0x03, label: 'HDMI-CEC' },
-    { code: 0x05, label: 'PJLINK' }
-  ];
+  'use strict';
+
+  // ===== état ============================================================
+  // Lundi..Dimanche (rows 0..6) :] km on/off HH:MM, volume = moteur réseau.
+  const WEEK_NAMES = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  const jsDayToRow = d => (d === 0 ? 6 : d - 1);   // getDay(): 0 = Dimanche
 
   let model = null;
-  let mode = 'days';
-  let curDay = 0;      // selected typical day index
-  let curEvent = 0;    // selected event row
-  let curCol = 0;      // 0=heure, 1=commande, 2=valeur
+  let mode  = 'week';
+  let curRow = 0;    // 0..6 (Lundi..Dimanche)
+  let curCol = 0;    // 0 allumage, 1 extinction, 2 volume
   let isEditing = false;
   let countdown = 60;
+  let volumes = [null,null,null,null,null,null,null];   // null = pas de programme
+  let keyHistory = [];
 
-  let calDate = null;  // current calendar month
-  let calSelDay = 0;   // typical day to assign in calendar mode
-  let calCellRow = 0;  // navigation within calendar grid (1-based day index)
-  let calCellMode = 'grid'; // grid | prev | next | save | close
+  // calibration calendar state
+  let calDate = new Date(); calDate.setDate(1);
+  let calSelDay = 0;
 
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
   function nowStamp() {
     const d = new Date();
-    const p = n => String(n).padStart(2, '0');
-    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}-${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+    return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear() +
+           '-' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
   }
-  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function hhmm(min) { return min === null || min === undefined ? '—' : pad(Math.floor(min / 60)) + ':' + pad(min % 60); }
 
   function defaultModel() {
-    const today = new Date();
-    const y = today.getFullYear(), mo = today.getMonth();
-    const daysInMonth = new Date(y, mo + 1, 0).getDate();
-    const dates = {};
-    for (let d = 1; d <= daysInMonth; d++) {
-      dates[`${y}-${pad(mo + 1)}-${pad(d)}`] = 0;
-    }
     return {
       hdr: {
         ver: 'SCH21.01',
         device: 'eVP3x0--0100----My Video Player (VP320/VP330) / Event Video Player (EVP380)',
-        name: 'Planning OSD', author: 'osd',
-        moddate: nowStamp(), client: '', comments: '', softver: '2.3.3.0'
+        name: 'Planning OSD', author: 'osd', moddate: nowStamp(), client: '', comments: '', softver: '2.3.3.0'
       },
-      days: [
-        { name: 'Jour type 1', color: [0, 255, 0], events: [
-          { minute: 8 * 60, code: 0x02, value: 1, comment: '' },
-          { minute: 19 * 60, code: 0x02, value: 1, comment: '' }
-        ]}
-      ],
-      dates
+      days: [],
+      dates: {}
     };
   }
 
-  // ------------------------------------------------------------------ render days
-  function renderDays() {
-    document.getElementById('cur-day-info').textContent =
-      `#${curDay + 1} — ${model.days[curDay].name}`;
-    const tb = document.getElementById('grid-body');
-    tb.innerHTML = '';
-    const evs = model.days[curDay].events;
-    if (!evs.length) {
-      tb.innerHTML = '<tr><td colspan="4">Aucun événement.</td></tr>';
-    } else {
-      evs.forEach((e, i) => {
-        const hh = pad(Math.floor(e.minute / 60)), mm = pad(e.minute % 60);
-        const cdef = COMMAND_LIST.find(c => c.code === e.code) || { label: '?' + e.code };
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td><button id="ev-${i}-0" class="nav-cell" tabindex="${10 + i * 3}" onclick="focusEvent(${i},0)">${hh}:${mm}</button></td>
-          <td><button id="ev-${i}-1" class="nav-cell" tabindex="${11 + i * 3}" onclick="focusEvent(${i},1)">${cdef.label}</button></td>
-          <td><button id="ev-${i}-2" class="nav-cell" tabindex="${12 + i * 3}" onclick="focusEvent(${i},2)">${valueLabel(e)}</button></td>`;
-        tb.appendChild(tr);
-      });
+  // s'assurer que les 7 premiers jours sont les jours de la semaine
+  function ensureWeekDays() {
+    if (!Array.isArray(model.days)) model.days = [];
+    while (model.days.length < 7) model.days.push({ name: '', color: [0,200,255], events: [] });
+    for (let i = 0; i < 7; i++) {
+      model.days[i].name = WEEK_NAMES[i];
+      if (!Array.isArray(model.days[i].color)) model.days[i].color = [0,200,255];
+      if (!Array.isArray(model.days[i].events)) model.days[i].events = [];
     }
+  }
+
+  // premier WAKE UP et premier STANDBY d'un jour type (représentation heure/allumage)
+  function extractTimes(day) {
+    let on = null, off = null;
+    (day && Array.isArray(day.events) ? day.events : []).forEach(e => {
+      if (e.code === 0x02 && e.value === 2 && on === null) on = e.minute;
+      else if (e.code === 0x02 && e.value === 1 && off === null) off = e.minute;
+    });
+    return { on, off };
+  }
+  function weekTimes(row) { return extractTimes(model.days[row]); }
+
+  function rebuildWeek(row, on, off) {
+    const evs = [];
+    if (on  !== null && on  !== undefined) evs.push({ minute: on,  code: 0x02, value: 2, comment: '' });  // WAKE UP
+    if (off !== null && off !== undefined) evs.push({ minute: off, code: 0x02, value: 1, comment: '' });  // STANDBY
+    evs.sort((a, b) => a.minute - b.minute);
+    model.days[row].events = evs;
+  }
+
+  function getVolume(r) { return volumes[r] === undefined ? null : volumes[r]; }
+  function setVolume(r, v) {
+    volumes[r] = v;
+    try { localStorage.setItem('vp-volumes', JSON.stringify(volumes)); } catch (_) {}
+  }
+
+  // ===== rendu semaine ===================================================
+  function renderWeek() {
+    const tb = document.getElementById('week-body');
+    tb.innerHTML = '';
+    const todayRow = jsDayToRow(new Date().getDay());
+    for (let r = 0; r < 7; r++) {
+      const t = weekTimes(r);
+      const vol = getVolume(r);
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td class="day-name' + (r === todayRow ? ' today' : '') + '">' + WEEK_NAMES[r] + '</td>' +
+        '<td><button class="cell" id="cell-' + r + '-0" tabindex="' + (10 + r * 3) + '">' + hhmm(t.on) + '</button></td>' +
+        '<td><button class="cell" id="cell-' + r + '-1" tabindex="' + (11 + r * 3) + '">' + hhmm(t.off) + '</button></td>' +
+        '<td><button class="cell" id="cell-' + r + '-2" tabindex="' + (12 + r * 3) + '">' + (vol === null ? '—' : String(vol)) + '</button></td>';
+      tb.appendChild(tr);
+    }
+    for (let r = 0; r < 7; r++) {
+      for (let c = 0; c < 3; c++) {
+        const btn = document.getElementById('cell-' + r + '-' + c);
+        btn.onclick = () => { curRow = r; curCol = c; isEditing = false; applyFocus(); };
+        if (r === curRow && c === curCol) btn.classList.add(isEditing ? 'editing' : 'focused');
+      }
+    }
+  }
+
+  function focusedEl() {
+    if (mode === 'week') return document.getElementById('cell-' + curRow + '-' + curCol);
+    if (calCellMode === 'grid') return document.getElementById('cal-' + calCellRow);
+    if (calCellMode === 'prev') return document.getElementById('cal-prev');
+    return document.getElementById('cal-next');
+  }
+  function applyFocus() {
+    if (mode !== 'week') { applyFocusCal(); return; }
+    clearEditingClass();
+    const el = focusedEl();
+    if (!el) return;
+    el.classList.add(isEditing ? 'editing' : 'focused');
+    if (document.activeElement !== el) { try { el.focus(); } catch (_) {} }
+  }
+  function clearEditingClass() {
+    document.querySelectorAll('#week-body button.cell').forEach(b => b.classList.remove('editing','focused'));
+  }
+
+  // ===== actions semaine =================================================
+  function weekOk() {
+    if (curCol === 2) {  // volume : \u2014  ->  50  ->  100  ->  \u2014 ...
+      const cur = getVolume(curRow);
+      setVolume(curRow, cur === null ? 50 : (cur >= 100 ? null : Math.min(100, cur + 5)));
+      renderWeek(); applyFocus();
+      return;
+    }
+    isEditing = !isEditing;
+    if (isEditing) {
+      const t = weekTimes(curRow);
+      if (curCol === 0 && t.on === null) rebuildWeek(curRow, 8 * 60, t.off);   // 08:00 par défaut
+      if (curCol === 1 && t.off === null) rebuildWeek(curRow, t.on, 19 * 60); // 19:00 par defaut
+    }
+    renderWeek(); applyFocus();
+  }
+
+  function weekArrows(dir) {
+    const t = weekTimes(curRow);
+    if (isEditing) {
+      if (dir === 'up' || dir === 'down') {
+        const step = (dir === 'up' ? 5 : -5);
+        if (curCol === 1) {
+          rebuildWeek(curRow, t.on, (((t.off === null ? 1140 : t.off) + step) + 1440) % 1440);
+        } else {
+          rebuildWeek(curRow, (((t.on === null ? 480 : t.on) + step) + 1440) % 1440, t.off);
+        }
+      } else {
+        // left/right en édition : valide et passe à la colonne suivante
+        isEditing = false;
+        curCol = (curCol + (dir === 'right' ? 1 : 2)) % 3;
+      }
+      renderWeek(); applyFocus();
+      return;
+    }
+    if (dir === 'left' || dir === 'right') curCol = (curCol + (dir === 'right' ? 1 : 2)) % 3;
+    else curRow = (curRow + (dir === 'down' ? 1 : 6)) % 7;
     applyFocus();
   }
 
-  function valueLabel(e) {
-    if (e.code === 0x00) return '📁 ' + e.value;
-    const map = { 0x01: ['', 'PLAY', 'STOP'], 0x02: ['', 'STANDBY', 'WAKEUP'], 0x03: ['', 'CEC ST', 'CEC WK'], 0x05: ['', 'PWR ON', 'PWR OFF'] };
-    const m = map[e.code];
-    return m ? (m[e.value] || e.value) : e.value;
-  }
-
-  // ------------------------------------------------------------------ navigation (days mode)
-  function focusEvent(i, c) { curEvent = i; curCol = c; isEditing = false; applyFocus(); }
-
-  function handleOk() {
-    if (mode === 'days') {
-      const e = model.days[curDay].events[curEvent];
-      if (!e) return;
-      if (curCol === 0) { // toggle editing of time
-        isEditing = !isEditing; renderDays();
-      } else if (curCol === 1) { // cycle command
-        const idx = COMMAND_LIST.findIndex(c => c.code === e.code);
-        const next = (idx + 1) % COMMAND_LIST.length;
-        e.code = COMMAND_LIST[next].code;
-        e.value = (e.code === 0x00) ? 1 : 1;
-        renderDays();
-      } else { // value
-        isEditing = !isEditing; renderDays();
-      }
-    } else if (mode === 'cal') {
-      calToggleAssign();
-    }
-  }
-
-  function handleArrows(dir) { // dir: up/down/left/right
-    if (mode === 'days') {
-      const n = model.days[curDay].events.length;
-      if (isEditing) {
-        const e = model.days[curDay].events[curEvent];
-        if (!e) return;
-        if (curCol === 0) {
-          const step = (dir === 'up' || dir === 'right') ? 5 : -5;
-          e.minute = (e.minute + step + 1440) % 1440;
-        } else if (curCol === 2) {
-          const step = (dir === 'up' || dir === 'right') ? 1 : -1;
-          const max = e.code === 0x00 ? 999 : 2;
-          e.value = Math.min(max, Math.max(0, e.value + step));
-          if (e.code === 0x00 && e.value < 0) e.value = 999;
-        }
-        renderDays();
-        return;
-      }
-      if (dir === 'left' || dir === 'right') {
-        curCol = (curCol + (dir === 'right' ? 1 : 2)) % 3;
-      } else if (dir === 'up' || dir === 'down') {
-        if (n) curEvent = (curEvent + (dir === 'down' ? 1 : n - 1)) % n;
-      }
-      applyFocus();
-    } else if (mode === 'cal') {
-      calNavigate(dir);
-    }
-  }
-
-  // ------------------------------------------------------------------ calendar
+  // ===== clé calendrier ==================================================
   function setMode(m) {
     mode = m;
-    document.getElementById('tab-days').classList.toggle('active', m === 'days');
+    document.getElementById('tab-week').classList.toggle('active', m === 'week');
     document.getElementById('tab-cal').classList.toggle('active', m === 'cal');
-    document.getElementById('view-days').classList.toggle('hidden', m !== 'days');
+    document.getElementById('view-week').classList.toggle('hidden', m !== 'week');
     document.getElementById('view-cal').classList.toggle('hidden', m !== 'cal');
-    if (m === 'cal') {
-      const now = new Date();
-      calDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      calCellMode = 'grid';
-      renderCal();
-    } else {
-      renderDays();
-    }
+    if (m === 'cal') { calDate = new Date(); calDate.setDate(1); calSelDay = 0; renderCal(); }
+    else renderWeek();
+    if (m === 'cal') { const el = document.getElementById('cal-' + calCellRow); try { el.focus(); } catch (_) {} }
   }
 
   function renderCal() {
     if (calSelDay >= model.days.length) calSelDay = 0;
     const y = calDate.getFullYear(), mo = calDate.getMonth();
     document.getElementById('cal-title').textContent =
-      `${['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'][mo]} ${y}`;
-    document.getElementById('cal-assign-info').textContent =
-      `#${calSelDay + 1} — ${model.days[calSelDay].name}`;
-
+      ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'][mo] + ' ' + y;
+    document.getElementById('cal-assign-info').textContent = WEEK_NAMES[calSelDay];
     const grid = document.getElementById('cal-grid');
     grid.innerHTML = '';
-    ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach(h => {
+    ['L','M','M','J','V','S','D'].forEach(h => {
       const c = document.createElement('div'); c.className = 'cal-head'; c.textContent = h; grid.appendChild(c);
     });
-    const first = new Date(y, mo, 1).getDay();
-    const offset = (first + 6) % 7;
-    for (let i = 0; i < offset; i++) { const c = document.createElement('div'); grid.appendChild(c); }
-
+    const offset = (new Date(y, mo, 1).getDay() + 6) % 7;
+    for (let i = 0; i < offset; i++) grid.appendChild(document.createElement('div'));
     const ndays = new Date(y, mo + 1, 0).getDate();
     for (let d = 1; d <= ndays; d++) {
-      const iso = `${y}-${pad(mo + 1)}-${pad(d)}`;
+      const iso = y + '-' + pad(mo + 1) + '-' + pad(d);
       const b = document.createElement('button');
       b.className = 'cal-cell' + (model.dates[iso] !== undefined ? ' assigned' : '');
-      b.textContent = d;
+      b.textContent = String(d);
       b.id = 'cal-' + d;
-      b.tabindex = 20 + d;
+      b.tabindex = 40 + d;
       b.onclick = () => { calCellRow = d; calToggleAssign(); };
       grid.appendChild(b);
     }
   }
 
+  function isoForCalDay(d) {
+    const y = calDate.getFullYear(), mo = calDate.getMonth();
+    const nd = new Date(y, mo + 1, 0).getDate();
+    if (d < 1 || d > nd) return null;
+    return y + '-' + pad(mo + 1) + '-' + pad(d);
+  }
   function calToggleAssign() {
     const iso = isoForCalDay(calCellRow);
     if (!iso) return;
     if (model.dates[iso] === calSelDay) delete model.dates[iso];
     else model.dates[iso] = calSelDay;
-    renderCal();
+    renderCal(); applyFocusCal();
   }
-
-  function isoForCalDay(d) {
-    const y = calDate.getFullYear(), mo = calDate.getMonth();
-    const ndays = new Date(y, mo + 1, 0).getDate();
-    if (d < 1 || d > ndays) return null;
-    return `${y}-${pad(mo + 1)}-${pad(d)}`;
-  }
-
   function calMove(delta) {
     calDate = new Date(calDate.getFullYear(), calDate.getMonth() + delta, 1);
-    calCellRow = 1; calCellMode = 'grid';
-    renderCal();
+    calCellRow = 1;
+    renderCal(); applyFocusCal();
   }
-
+  function applyFocusCal() {
+    if (!calCellRow) return;
+    const el = document.getElementById('cal-' + calCellRow);
+    if (el) try { el.focus(); } catch (_) {}
+  }
   function calNavigate(dir) {
     const y = calDate.getFullYear(), mo = calDate.getMonth();
-    const ndays = new Date(y, mo + 1, 0).getDate();
+    const nd = new Date(y, mo + 1, 0).getDate();
     if (dir === 'left' || dir === 'right') {
-      if (calCellMode === 'grid') {
-        calCellRow += (dir === 'right' ? 1 : -1);
-        if (calCellRow > ndays) { calMove(1); }
-        if (calCellRow < 1) { calMove(-1); }
+      calCellRow = Math.max(1, Math.min(nd, calCellRow + (dir === 'right' ? 1 : -1)));
+    } else if (dir === 'up' || dir === 'down') {
+      calSelDay = (calSelDay + (dir === 'down' ? 1 : model.days.length - 1)) % model.days.length;
+      renderCal();
+    }
+    applyFocusCal();
+  }
+
+  // ===== clos d'assignation: 3 mois couverts à l'ouverture ===============
+  function autoAssignComingMonths() {
+    const start = new Date(); start.setDate(1);
+    for (let k = 0; k < 3; k++) {
+      const mb = new Date(start.getFullYear(), start.getMonth() + k, 1);
+      const nd = new Date(mb.getFullYear(), mb.getMonth() + 1, 0).getDate();
+      for (let d = 1; d <= nd; d++) {
+        const iso = mb.getFullYear() + '-' + pad(mb.getMonth() + 1) + '-' + pad(d);
+        if (model.dates[iso] === undefined) {
+          model.dates[iso] = jsDayToRow(new Date(mb.getFullYear(), mb.getMonth(), d).getDay());
+        }
       }
-    } else if (dir === 'up') {
-      calSelDay = (calSelDay + model.days.length - 1) % model.days.length;
-      renderCal();
-    } else if (dir === 'down') {
-      calSelDay = (calSelDay + 1) % model.days.length;
-      renderCal();
     }
   }
 
-  // ------------------------------------------------------------------ focus keeper
-  function currentEl() {
-    if (mode === 'days') {
-      const e = model.days[curDay].events[curEvent];
-      if (!e) return document.getElementById('btn-save');
-      return document.getElementById(`ev-${curEvent}-${curCol}`);
-    } else {
-      if (calCellMode === 'grid') return document.getElementById('cal-' + calCellRow);
-      if (calCellMode === 'prev') return document.getElementById('cal-prev');
-      if (calCellMode === 'next') return document.getElementById('cal-next');
-      return document.getElementById('btn-save2');
-    }
-  }
-
-  function applyFocus() {
-    const el = currentEl();
-    if (el && document.activeElement !== el) el.focus();
-  }
-
-  // ------------------------------------------------------------------ key handling
-  window.addEventListener('keydown', function (e) {
-    countdown = 60;
-    const code = e.keyCode || e.which;
-    const key = e.key || '';
-    document.getElementById('key-debug').innerText = `Touche: ${key} (code ${code})`;
-
-    const isUp = (key === 'ArrowUp' || code === 38 || code === 19);
-    const isDown = (key === 'ArrowDown' || code === 40 || code === 20);
-    const isLeft = (key === 'ArrowLeft' || code === 37 || code === 21);
-    const isRight = (key === 'ArrowRight' || code === 39 || code === 22);
-    const isOk = (key === 'Enter' || key === ' ' || code === 13 || code === 23 || code === 66);
-
-    if (isUp || isDown || isLeft || isRight) {
-      e.preventDefault(); e.stopPropagation();
-      handleArrows(isUp ? 'up' : isDown ? 'down' : isLeft ? 'left' : 'right');
-    } else if (isOk) {
-      e.preventDefault(); e.stopPropagation();
-      handleOk();
-    }
-  }, true);
-
-  setInterval(() => { window.focus(); applyFocus(); }, 250);
-
-  setInterval(() => {
-    const d = new Date();
-    document.getElementById('clock').innerText = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-    countdown--;
-    document.getElementById('timer-sec').innerText = countdown;
-    if (countdown <= 0) closeOSD();
-  }, 1000);
-
-  // ------------------------------------------------------------------ save / close
+  // ===== save / close ====================================================
   function closeOSD() {
     document.getElementById('osd-overlay').style.display = 'none';
     fetch('/api/web/stop').catch(() => {});
   }
 
-  async function saveAndClose() {
-    const btn = document.getElementById('btn-save');
-    if (btn) btn.innerText = '⏳ Sauvegarde...';
+  function saveAndClose() {
+    ensureWeekDays();
     model.hdr.moddate = nowStamp();
-    const enc = TM2.encode(model);
     try {
-      localStorage.setItem('tm2', btoa(String.fromCharCode.apply(null, enc)));
-    } catch (e) {}
-    closeOSD();
+      const enc = TM2.encode(model);
+      // sanity reparse
+      TM2.parse(enc);
+      try {
+        localStorage.setItem('tm2', btoa(String.fromCharCode.apply(null, enc)));
+        localStorage.setItem('tm2-model', JSON.stringify(model));
+      } catch (_) {}
+      closeOSD();
+    } catch (e) {
+      alert('Enregistrement impossible : ' + e.message);
+    }
   }
 
   function loadSchedule() {
-    const b64 = localStorage.getItem('tm2');
     let ok = false;
-    if (b64) {
-      try {
-        const bin = atob(b64);
-        const buf = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-        model = TM2.parse(buf);
-        ok = !!(model && model.days);
-      } catch (e) { ok = false; }
+    try {
+      const saved = localStorage.getItem('tm2-model');
+      if (saved) {
+        const m = JSON.parse(saved);
+        if (m && m.hdr && Array.isArray(m.days)) { model = m; ok = true; }
+      }
+      if (!ok) {
+        const b64 = localStorage.getItem('tm2');
+        if (b64) {
+          const bin = atob(b64);
+          const buf = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+          model = TM2.parse(buf);
+          ok = !!(model && model.days);
+        }
+      }
+    } catch (e) { ok = false; }
+    if (!ok) {
+      // first run: Lundi 08:00 / 19:00 as a friendly starting point
+      model = defaultModel();
+      ensureWeekDays();
+      rebuildWeek(0, 8 * 60, 19 * 60);
     }
-    if (!ok) { model = defaultModel(); }
     if (!model.dates) model.dates = {};
-    // guard: at least one typical day, indexes in range
-    if (!model.days.length) model.days.push({ name: 'Jour type 1', color: [0, 255, 0], events: [] });
-    if (curDay >= model.days.length) curDay = 0;
-    if (calSelDay >= model.days.length) calSelDay = 0;
-    renderDays();
+    ensureWeekDays();
+    try {
+      const v = JSON.parse(localStorage.getItem('vp-volumes') || 'null');
+      if (Array.isArray(v)) for (let i = 0; i < 7; i++) volumes[i] = (typeof v[i] === 'number' ? v[i] : null);
+    } catch (_) {}
+    autoAssignComingMonths();
+    curRow = 0; curCol = 0; isEditing = false;
+    renderWeek(); renderCal();
   }
+
+  // ===== clavier / télécommande IR =======================================
+  // Codes IR NEC (19/20/21/22/23/66) + équivalents clavier (flèches, Entrée, Espace).
+  const KEYMAP = {
+    19: 'up', 20: 'down', 21: 'left', 22: 'right', 23: 'ok', 66: 'ok',
+    38: 'up', 40: 'down', 37: 'left', 39: 'right', 13: 'ok', 32: 'ok'
+  };
+  function handleOk() {
+    if (mode === 'week') weekOk();
+    else calToggleAssign();
+  }
+  function handleArrows(dir) {
+    if (mode === 'week') weekArrows(dir);
+    else calNavigate(dir);
+  }
+  window.addEventListener('keydown', function (e) {
+    countdown = 60;
+    const code = (typeof e.keyCode === 'number') ? e.keyCode : (e.which || 0);
+    const action = KEYMAP[code];
+    keyHistory.unshift(code);
+    if (keyHistory.length > 6) keyHistory.pop();
+    document.getElementById('dbg-keys').textContent =
+      'Touche : ' + keyHistory.map(c => c + (KEYMAP[c] ? '\u2192' + KEYMAP[c] : '')).join('  ');
+    if (action) {
+      e.preventDefault(); e.stopPropagation();
+      if (action === 'ok') handleOk(); else handleArrows(action);
+    }
+  }, true);
+
+  setInterval(() => {
+    const d = new Date();
+    document.getElementById('clock').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    countdown--;
+    document.getElementById('timer-sec').textContent = countdown;
+    if (countdown <= 0) closeOSD();
+  }, 1000);
+
+  // the player's browser steals focus: re-apply regularly
+  setInterval(applyFocus, 250);
 
   loadSchedule();
 </script>

@@ -197,9 +197,22 @@ Le repo contient **deux pages web statiques** + une config :
 
 - [x] ✅ Remplacer la sémantique simplifiée « on/off + volume + dossier » par un modèle
        basé sur les **événements officiels** (typical days + calendrier).
-- [x] ✅ **`index.html` (OSD télécommande)** : éditer typical days + événements (heure,
-       commande, valeur) et calendrier (affectation par dates) avec navigation spatiale
-       (flèches/OK, codes IR NEC), gardien de focus, auto-fermeture.
+- [x] ✅ **`index.html` (OSD télécommande)** — **vue semaine (v1 revue) du 10/11/2026** :
+       grille Lundi → Dimanche avec **Allumage / Extinction / Volume** par jour
+       (◀ ▶ colonnes, ▲ ▼ jours, OK éditer ; ▲ ▼ en édition = ±5 min ; « — » =
+       pas d'événement). Le `.tm2` encode WAKE UP/STANDBY (0x02) par jour type ;
+       le **volume**, absent du format officiel, est stocké à part
+       (`localStorage['vp-volumes']`) et appliqué **par le moteur réseau**
+       (`engine.js` : `volumeFor`, POST `/api/player/set-volume` après chaque
+       WAKE UP). Calendrier **auto-affecté** à l'ouverture (3 mois couverts, jour
+       de semaine = jour type, sans écraser une affectation manuelle) ; défaut
+       Lundi 08:00/19:00. Bandeau de touche : programmes les codes réels à relever.
+- [ ] ⬜ **Navigation IR à valider sur le player (10/11/2026)** : l'utilisateur rapporte
+       ◀/▶ fonctionnels mais ▲/▼/OK sans effet sur l'OSD précédent. Sur la feuille
+       revue, le bandeau « Touche : code… » enregistre **les 6 derniers codes** : à
+       relever par la télécommande réelle puis recâblés dans `KEYMAP` de `index.html`
+       (les codes 19/20/21/22/23/66 sont les suppositions actuelles).
+
 - [x] ✅ **`remote.html` (web)** : mêmes capacités d'édition depuis le navigateur via l'IP
        (jours types + événements + calendrier + import/export `scheduler.tm2`).
 - [x] ✅ Brancher le **chargement/sauvegarde** du `scheduler.tm2` sur le player via la
