@@ -1,6 +1,6 @@
 {
   "suite": "offline",
-  "generatedAt": "2026-11-10T09:31:23.995Z",
+  "generatedAt": "2026-11-10T09:42:41.822Z",
   "node": "v24.22.2",
   "total": 13,
   "passed": 13,
@@ -64,7 +64,7 @@
     {
       "name": "api buildAuth structure",
       "pass": true,
-      "detail": "Digest username=\"admin\", realm=\"r\", nonce=\"n\", uri=\"/api/player/play\", response=\"4abb0c293b710deeb00808a9bfeb42a5\", qop=auth, nc=00000001, cnonce=\"9fgzicxuirqraso7wavcfm\""
+      "detail": "Digest username=\"admin\", realm=\"r\", nonce=\"n\", uri=\"/api/player/play\", response=\"d14f48803abf1ce3d78feb4c05d8b3ba\", qop=auth, nc=00000001, cnonce=\"pys11nv68l8fth4vbpwu\""
     },
     {
       "name": "api digest uri = chemin de requête (RFC 2617)",
