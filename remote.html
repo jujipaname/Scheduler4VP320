@@ -196,6 +196,8 @@
         <button class="btn btn-primary" onclick="loadFromPlayer()">⬇ Charger depuis le player</button>
         <button class="btn btn-danger" onclick="deployToPlayer()">⬆ Déployer vers le player</button>
         <button class="btn btn-ghost" onclick="loggerProbe()">🔎 Tester l'accès fichiers</button>
+        <button class="btn btn-ghost" onclick="osdJournalShow()">📜 Journal OSD</button>
+        <button class="btn btn-ghost" onclick="osdJournalClear()">🧹 Vider journal</button>
       </div>
       <div class="hint">
         Utilise les identifiants de l'onglet <b>Télécommande</b>. « Charger » lit le fichier
@@ -663,6 +665,59 @@
                 '. Le firmware relit le fichier à la minute suivante.');
     } catch (e) {
       playerSay('❌ ' + e.message);
+    }
+  }
+
+  // ---- OSD debug journal (domaine Logger, écrit par index.html) ----------
+  async function osdJournalShow() {
+    const c = restBuildClient();
+    document.getElementById('player-status').textContent = 'Lecture du journal OSD ...';
+    try {
+      let res = await c.request('/api/logs/osd-debug.log', 'GET');
+      let txt = null;
+      if (res.status === 200) {
+        txt = await res.text().catch(() => null);
+      } else {
+        // fallback: base64 read by chunks
+        const st = await c.request('/api/logs/osd-debug.log/stat', 'GET');
+        if (st.status === 200) {
+          const size = Number(((await st.json()) || { data: {} }).data.size || 0);
+          let b64 = '';
+          for (let off = 0; off < size; off += 16384) {
+            const r = await c.request('/api/logs/osd-debug.log/read?offset=' + off + '&length=16384', 'GET');
+            if (r.status !== 200) break;
+            const j = await r.json();
+            b64 += (j && j.data && j.data.data) || '';
+          }
+          if (b64) {
+            const bin = atob(b64);
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            txt = new TextDecoder().decode(bytes);
+          }
+        }
+      }
+      if (txt === null) {
+        document.getElementById('player-status').textContent = '❌ Journal OSD introuvable (Logger refusé ou vide).';
+        return;
+      }
+      document.getElementById('rest-out').textContent = txt || '(journal vide)';
+      document.getElementById('player-status').textContent = '✅ Journal OSD affiché dans la zone de sortie.';
+    } catch (e) {
+      document.getElementById('player-status').textContent = '❌ ' + e.message;
+    }
+  }
+
+  async function osdJournalClear() {
+    if (!confirm('Vider le journal OSD du player ?')) return;
+    const c = restBuildClient();
+    try {
+      const res = await c.request('/api/logs/osd-debug.log', 'DELETE');
+      const j = await res.json().catch(() => null);
+      document.getElementById('player-status').textContent =
+        (j && j.data && j.data.status === true) ? '✅ Journal vidé.' : '❌ Réponse : ' + JSON.stringify(j);
+    } catch (e) {
+      document.getElementById('player-status').textContent = '❌ ' + e.message;
     }
   }
 

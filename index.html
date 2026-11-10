@@ -6,44 +6,44 @@
   <title>Scheduler OSD - Vue semaine</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
-    body { background: #10151c; color: #eef2f7; }
+    /* transparency is what lets the video show through the OSD */
+    html, body { background: transparent; color: #eef2f7; }
     #osd-overlay {
-      background: rgba(8,11,16,0.97);
-      display: flex; align-items: center; justify-content: center;
-      height: 100vh; width: 100vw;
+      position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px;
+      width: 660px; max-width: 96vw;
     }
     .panel {
-      background: #1a2029; border: 2px solid #3a4657; border-radius: 14px;
-      padding: 24px 30px; box-shadow: 0 10px 60px rgba(0,0,0,0.95); width: 720px;
+      background: rgba(14,19,26,0.82); border: 2px solid rgba(90,110,140,0.85); border-radius: 12px;
+      padding: 14px 18px; box-shadow: 0 8px 40px rgba(0,0,0,0.75);
     }
-    .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; gap: 10px; }
-    .header h2 { font-size: 20px; color: #ff4757; }
-    .info { font-size: 14px; color: #98a2b3; text-align: right; line-height: 1.45; }
+    .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; gap: 10px; }
+    .header h2 { font-size: 17px; color: #ff4757; white-space: nowrap; }
+    .info { font-size: 12px; color: #a8b3c4; text-align: right; line-height: 1.4; }
     .info .keydbg { color: #ffd32a; font-family: monospace; }
     .info .mt { color: #00d2d3; }
 
     .mode-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
-    .mode-tab { flex: 1; padding: 10px; border-radius: 8px; border: 2px solid #57606f;
+    .mode-tab { flex: 1; padding: 7px; border-radius: 8px; border: 2px solid #57606f;
       background: #242b37; color: #a4b0be; font-size: 16px; font-weight: bold; cursor: pointer; outline: none; }
     .mode-tab.active { background: #ff4757; border-color: #ffd32a; color: #fff; }
     .mode-tab.focused, .mode-tab:focus { border: 3px solid #00d2d3; }
 
-    table.week { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    table.week { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
     table.week th { color: #98a2b3; border-bottom: 1px solid #37424f; padding: 6px 4px; font-size: 15px; text-align: center; }
     table.week td { padding: 2px 4px; text-align: center; }
-    td.day-name { text-align: right; padding-right: 10px; font-size: 17px; font-weight: 600; color: #c8d3e0; }
+    td.day-name { text-align: right; padding-right: 8px; font-size: 15px; font-weight: 600; color: #c8d3e0; }
     td.day-name.today { color: #2ed573; }
     button.cell {
       background: #2a3542; color: #fff; border: 1px solid #46536a; border-radius: 6px;
-      font-size: 18px; font-weight: 600; padding: 6px 0; width: 118px; outline: none;
+      font-size: 16px; font-weight: 600; padding: 3px 0; width: 108px; outline: none;
       font-variant-numeric: tabular-nums;
     }
     button.cell:focus, button.cell.focused { border: 3px solid #00d2d3; box-shadow: 0 0 12px #00d2d3; background: #2d6da3; }
     button.cell.editing { background: #ffd32a; color: #10151c; border-color: #ffd32a; }
 
-    .help { color: #98a2b3; font-size: 14px; text-align: center; margin-top: 6px; }
-    .btn-group { text-align: center; margin-top: 12px; display: flex; justify-content: center; gap: 12px; }
-    .btn { padding: 10px 22px; font-size: 16px; border-radius: 8px; border: none; cursor: pointer; outline: none; font-weight: bold; }
+    .help { color: #98a2b3; font-size: 12px; text-align: center; margin-top: 4px; }
+    .btn-group { text-align: center; margin-top: 8px; display: flex; justify-content: center; gap: 12px; }
+    .btn { padding: 7px 18px; font-size: 14px; border-radius: 8px; border: none; cursor: pointer; outline: none; font-weight: bold; }
     .btn-save { background: #2ed573; color: #0d1117; }
     .btn-close { background: #6c7687; color: #fff; }
     .btn:focus { border: 3px solid #ffd32a; }
@@ -60,7 +60,7 @@
       padding: 8px 0; font-size: 15px; cursor: pointer; outline: none; }
     .cal-cell.assigned { background: #274d68; border-color: #00d2d3; color: #fff; font-weight: bold; }
     .cal-cell:focus, .cal-cell.selected { border: 3px solid #ffd32a; box-shadow: 0 0 10px #ffd32a; color: #fff; }
-    .attr-line { text-align: center; color: #98a2b3; font-size: 14px; margin: 8px 0; }
+    .attr-line { text-align: center; color: #98a2b3; font-size: 12px; margin: 5px 0; }
     .attr-line b { color: #00d2d3; }
   </style>
 </head>
@@ -72,7 +72,8 @@
       <h2>📅 PLANNING HEBDO</h2>
       <div class="info">
         <span class="keydbg" id="dbg-keys">Touche : ...</span><br>
-        Heure : <span class="mt" id="clock">--:--:--</span> — fermeture dans <b id="timer-sec">60</b> s
+        Heure : <span class="mt" id="clock">--:--:--</span> — fermeture dans <b id="timer-sec">60</b> s<br>
+        <span id="osd-log" style="color:#7dd3fc;"></span>
       </div>
     </div>
 
@@ -118,6 +119,7 @@
 </div>
 
 <script src="tm2.js"></script>
+<script src="api.js"></script>
 <script>
   'use strict';
 
@@ -380,6 +382,7 @@
   function saveAndClose() {
     ensureWeekDays();
     model.hdr.moddate = nowStamp();
+    osdLog('enregistrement du planning ...');
     try {
       const enc = TM2.encode(model);
       // sanity reparse
@@ -388,8 +391,10 @@
         localStorage.setItem('tm2', btoa(String.fromCharCode.apply(null, enc)));
         localStorage.setItem('tm2-model', JSON.stringify(model));
       } catch (_) {}
+      osdLog('planning enregistré (' + model.days.length + ' jours)');
       closeOSD();
     } catch (e) {
+      osdLog('ERREUR enregistrement : ' + e.message);
       alert('Enregistrement impossible : ' + e.message);
     }
   }
@@ -430,6 +435,35 @@
     renderWeek(); renderCal();
   }
 
+  // ===== journal à distance (domaine Logger REST) ========================
+  // Feedback sans écran : chaque touche/événement est écrit dans
+  // /api/logs/osd-debug.log (POST append, texte). remote.html peut le relire
+  // et le vider. Si les identifiants ne sont pas mémorisés (localStorage
+  // "vp-rest", écrits par l'onglet Télécommande de remote.html), le journal
+  // reste à l'écran uniquement.
+  let logClient = null;
+  let logChain = Promise.resolve();
+  (function initLogClient() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('vp-rest') || 'null');
+      if (!saved || !saved.user) return;
+      const base = (!saved.host || location.origin === saved.host ||
+                    saved.host.indexOf(location.hostname) !== -1) ? '' : saved.host;
+      logClient = VPAPI.createClient({ base, username: saved.user, password: saved.pass });
+    } catch (_) { logClient = null; }
+  })();
+
+  function osdLog(msg) {
+    const el = document.getElementById('osd-log');
+    if (el) { el.textContent = msg; }
+    if (!logClient) return;
+    const line = new Date().toISOString().slice(11, 19) + ' ' + msg;
+    logChain = logChain.then(() =>
+      logClient.request('/api/logs/osd-debug.log', 'POST', undefined, { data: line })
+    ).then(r => { if (r.status !== 200) logClient = null; })
+     .catch(() => { logClient = null; });
+  }
+
   // ===== clavier / télécommande IR =======================================
   // Codes IR NEC (19/20/21/22/23/66) + équivalents clavier (flèches, Entrée, Espace).
   const KEYMAP = {
@@ -452,9 +486,13 @@
     if (keyHistory.length > 6) keyHistory.pop();
     document.getElementById('dbg-keys').textContent =
       'Touche : ' + keyHistory.map(c => c + (KEYMAP[c] ? '\u2192' + KEYMAP[c] : '')).join('  ');
+    osdLog('touche code=' + code + (key ? ' (' + key + ')' : '') + (action ? ' -> ' + action : ' (non mappée)') +
+           ' [' + mode + ' r' + curRow + ' c' + curCol + (isEditing ? ' edit' : '') + ']');
     if (action) {
       e.preventDefault(); e.stopPropagation();
       if (action === 'ok') handleOk(); else handleArrows(action);
+    } else {
+      osdLog('code non mappé : ' + code + ' -> à ajouter dans KEYMAP');
     }
   }, true);
 
@@ -470,6 +508,8 @@
   setInterval(applyFocus, 250);
 
   loadSchedule();
+  osdLog('OSD ouvert : ' + model.days.length + ' jour(s) type, ' +
+         Object.keys(model.dates).length + ' date(s) affectée(s)');
 </script>
 </body>
 </html>

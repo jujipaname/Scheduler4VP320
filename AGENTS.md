@@ -207,6 +207,17 @@ Le repo contient **deux pages web statiques** + une config :
        WAKE UP). Calendrier **auto-affecté** à l'ouverture (**année en cours + suivante**,
        jour de semaine = jour type, sans écraser une affectation manuelle) ; défaut
        Lundi 08:00/19:00. Bandeau de touche : programmes les codes réels à relever.
+- [x] ✅ **OSD en surimpression + journal à distance (10/11/2026)** : `index.html` est
+       maintenant une **surimpression** (html/body transparent, panneau semi-transparent
+       fixé en bas, fonts compactées) — le fond opaque plein écran est supprimé. Le
+       **retour d'état** passe par le domaine Logger (présent en v1.13.1, mesuré) :
+       `index.html` écrit chaque touche/événement dans `POST /api/logs/osd-debug.log`
+       (identifiants repris du `localStorage['vp-rest']` de `remote.html`, même origine ;
+       si absents, journal écran seul), et `remote.html` onglet Fichier ajoute
+       « 📜 Journal OSD » (lecture texte, repli `/read` base64) et « 🧹 Vider journal »
+       (DELETE). Diagnostic IR attendu : si le journal ne contient que la ligne
+       d'ouverture sans aucune ligne « touche code=… », les touches IR n'arrivent pas à
+       la page (focus/déclenchement d'affichage), pas un problème de mappage.
 - [ ] ⬜ **Navigation IR à valider sur le player (10/11/2026)** : l'utilisateur rapporte
        ◀/▶ fonctionnels mais ▲/▼/OK sans effet sur l'OSD précédent. Sur la feuille
        revue, le bandeau « Touche : code… » enregistre **les 6 derniers codes** : à
